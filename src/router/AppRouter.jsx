@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Login from '../pages/Login'
+import SignupPage from '../pages/SignupPage'
 import DashboardLayout from '../layouts/DashboardLayout'
 
 // Public pages
@@ -48,11 +49,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   return children
@@ -61,6 +62,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 const AppRouter = () => {
   return (
     <Routes>
+      <Route path="/" element={<SignupPage />} />
+      <Route path="/signup" element={<SignupPage />} />
       <Route path="/login" element={<Login />} />
       
       {/* Public routes */}
@@ -139,8 +142,6 @@ const AppRouter = () => {
         <Route path="trends" element={<AnalystTrends />} />
         <Route path="schedule" element={<AnalystSchedule />} />
       </Route>
-
-      <Route path="/" element={<Navigate to="/login" replace />} />
     </Routes>
   )
 }
