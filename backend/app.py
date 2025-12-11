@@ -8,7 +8,7 @@ from flask import Flask
 from flask_cors import CORS
 from routes.auth import auth_bp
 from routes.incidents import incidents_bp
-from routes.traffic import traffic_bp
+from routes.traffic_routes import traffic_bp
 from database_config import db
 
 # Load environment variables from .env file
