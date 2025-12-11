@@ -15,6 +15,7 @@ const PublicReportIncident = () => {
     date: new Date().toISOString().slice(0, 10),
     time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
     period: new Date().getHours() >= 12 ? 'PM' : 'AM',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     description: '',
   })
   const [submitting, setSubmitting] = useState(false)
@@ -108,6 +109,7 @@ const PublicReportIncident = () => {
         date: new Date().toISOString().slice(0, 10),
         time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
         period: new Date().getHours() >= 12 ? 'PM' : 'AM',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         description: '',
       })
     } catch (error) {
@@ -190,6 +192,16 @@ const PublicReportIncident = () => {
             </div>
           </div>
 
+          <div className="bg-gray-50 p-3 rounded-md">
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Timezone (Auto-detected)
+            </label>
+            <p className="text-sm text-gray-700">{formData.timezone}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Times will be converted to UTC for storage
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Description *
@@ -197,11 +209,27 @@ const PublicReportIncident = () => {
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="input-field"
+              className={`input-field ${formData.description.trim().length < 5 && formData.description.length > 0 ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''}`}
               rows={4}
-              placeholder="Provide additional details about the incident"
+              placeholder="Provide additional details about the incident (minimum 5 characters)"
               required
             />
+            <div className="mt-1 flex justify-between items-center">
+              <div className="text-sm">
+                {formData.description.trim().length < 5 && formData.description.length > 0 ? (
+                  <span className="text-red-600">
+                    Minimum 5 characters required ({5 - formData.description.trim().length} more needed)
+                  </span>
+                ) : formData.description.trim().length >= 5 ? (
+                  <span className="text-green-600">✓ Description looks good</span>
+                ) : (
+                  <span className="text-gray-500">Enter incident description</span>
+                )}
+              </div>
+              <span className="text-xs text-gray-400">
+                {formData.description.length}/500
+              </span>
+            </div>
           </div>
 
           <Button type="submit" disabled={submitting} className="w-full md:w-auto">
