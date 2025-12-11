@@ -105,6 +105,9 @@ const Login = () => {
               </button>
             ))}
           </div>
+          {errors.role && (
+            <p className="mt-2 text-sm text-red-600">{errors.role}</p>
+          )}
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
