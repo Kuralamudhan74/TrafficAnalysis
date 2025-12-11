@@ -8,7 +8,11 @@ from flask import Flask
 from flask_cors import CORS
 from routes.auth import auth_bp
 from routes.incidents import incidents_bp
+
 from routes.traffic_routes import traffic_bp
+
+from routes.traffic import traffic_bp
+
 from database_config import db
 
 # Load environment variables from .env file
@@ -24,7 +28,11 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(incidents_bp, url_prefix='/api')
+
     app.register_blueprint(traffic_bp, url_prefix='/api/traffic')
+
+    app.register_blueprint(traffic_bp)
+
     
     # Health check endpoint
     @app.route('/health')

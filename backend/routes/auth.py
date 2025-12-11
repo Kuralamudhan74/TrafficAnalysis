@@ -21,7 +21,7 @@ auth_bp = Blueprint('auth', __name__)
 # Initialize password hasher
 ph = PasswordHasher()
 
-# Valid roles
+# Valid roles (must match database constraint)
 VALID_ROLES = ['public', 'government', 'developer', 'analyst']
 
 def validate_email(email):
@@ -42,6 +42,10 @@ def signup():
     Expected JSON: {'email': str, 'password': str, 'role': str}
     """
     try:
+        # Check Content-Type header
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+        
         # Get JSON data
         data = request.get_json()
         if not data:
@@ -99,7 +103,10 @@ def signup():
         }), 201
 
     except Exception as e:
-        return jsonify({'error': 'Internal server error'}), 500
+        print(f"Signup error: {str(e)}")  # Debug logging
+        import traceback
+        traceback.print_exc()  # Full stack trace
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -108,6 +115,10 @@ def login():
     Expected JSON: {'email': str, 'password': str, 'role': str}
     """
     try:
+        # Check Content-Type header
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+        
         # Get JSON data
         data = request.get_json()
         if not data:
@@ -176,6 +187,10 @@ def verify_token():
     Expected JSON: {'token': str}
     """
     try:
+        # Check Content-Type header
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+        
         data = request.get_json()
         if not data or 'token' not in data:
             return jsonify({'error': 'Token is required'}), 400
