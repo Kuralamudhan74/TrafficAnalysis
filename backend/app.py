@@ -5,6 +5,7 @@ Main Flask application for Traffic Analysis system.
 from flask import Flask
 from flask_cors import CORS
 from routes.auth import auth_bp
+from routes.incidents import incidents_bp
 from database_config import db
 
 def create_app():
@@ -16,6 +17,7 @@ def create_app():
     
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(incidents_bp, url_prefix='/api')
     
     # Health check endpoint
     @app.route('/health')

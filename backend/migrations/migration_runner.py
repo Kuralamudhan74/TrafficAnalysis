@@ -92,11 +92,11 @@ class MigrationRunner:
             # Run the migration
             if hasattr(migration_module, 'up'):
                 print(f"🔄 Running migration: {migration_name}")
-                migration_module.up()
                 
-                # Mark migration as applied
                 conn = get_db_connection()
                 cursor = conn.cursor()
+                migration_module.up(cursor)
+                # Mark migration as applied
                 cursor.execute(
                     "INSERT INTO migrations (migration_name) VALUES (%s)",
                     (migration_name,)

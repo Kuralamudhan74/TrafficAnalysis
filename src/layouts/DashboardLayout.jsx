@@ -43,12 +43,12 @@ const DashboardLayout = () => {
       case 'public':
       case 'guest':
         return [
-          { path: '/public/dashboard', label: 'Dashboard', icon: FiBarChart2 },
-          { path: '/public/map', label: 'Live Congestion Map', icon: FiMap },
-          { path: '/public/route-status', label: 'Route Traffic Status', icon: FiNavigation },
-          { path: '/public/hotspots', label: 'Daily Top Hotspots', icon: FiAlertCircle },
-          { path: '/public/report-incident', label: 'Report Road Incident', icon: FiFileText },
-          { path: '/public/feedback', label: 'Feedback', icon: FiHeart },
+          { path: '/dashboard', label: 'Dashboard', icon: FiBarChart2 },
+          { path: '/map', label: 'Live Congestion Map', icon: FiMap },
+          { path: '/route-status', label: 'Route Traffic Status', icon: FiNavigation },
+          { path: '/hotspots', label: 'Daily Top Hotspots', icon: FiAlertCircle },
+          { path: '/report-incident', label: 'Report Road Incident', icon: FiFileText },
+          { path: '/feedback', label: 'Feedback', icon: FiHeart },
         ]
       case 'government':
         return [

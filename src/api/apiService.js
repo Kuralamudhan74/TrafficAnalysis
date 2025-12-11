@@ -92,6 +92,34 @@ class ApiService {
       }
     })
   }
+
+  /**
+   * Submit incident report
+   */
+  static async submitIncident(incidentData, token) {
+    return this.authenticatedRequest('/incidents', token, {
+      method: 'POST',
+      body: JSON.stringify(incidentData)
+    })
+  }
+
+  /**
+   * Get user's incidents
+   */
+  static async getUserIncidents(token) {
+    return this.authenticatedRequest('/incidents', token, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Get specific incident by ID
+   */
+  static async getIncident(incidentId, token) {
+    return this.authenticatedRequest(`/incidents/${incidentId}`, token, {
+      method: 'GET'
+    })
+  }
 }
 
 export default ApiService

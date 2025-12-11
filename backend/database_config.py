@@ -35,9 +35,7 @@ class DatabaseConfig:
         try:
             conn = self.get_db_connection()
             conn.close()
-            print("Database connection established successfully.")
         except Exception as e:
-            print("Database connection failed:", e)
             raise e
 
 

@@ -53,14 +53,14 @@ const Login = () => {
       
       // Redirect based on role
       const routes = {
-        public: '/public/dashboard',
+        public: '/dashboard',
         government: '/gov/dashboard',
         developer: '/dev/algorithms',
         analyst: '/analyst/preprocess',
       }
       
       toast.success('Login successful!')
-      navigate(routes[response.user.role] || '/public/dashboard')
+      navigate(routes[response.user.role] || '/dashboard')
       
     } catch (error) {
       console.error('Login failed:', error)
@@ -73,7 +73,7 @@ const Login = () => {
   const handleGuestAccess = () => {
     login('guest@example.com', 'guest')
     toast.success('Continuing as guest')
-    navigate('/public/dashboard')
+    navigate('/dashboard')
   }
 
   return (

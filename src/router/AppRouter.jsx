@@ -1,16 +1,16 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Login from '../pages/Login'
 import SignupPage from '../pages/SignupPage'
 import DashboardLayout from '../layouts/DashboardLayout'
 
 // Public pages
-import PublicDashboard from '../pages/public/Dashboard'
-import PublicMap from '../pages/public/Map'
-import PublicRouteStatus from '../pages/public/RouteStatus'
-import PublicHotspots from '../pages/public/Hotspots'
-import PublicReportIncident from '../pages/public/ReportIncident'
-import PublicFeedback from '../pages/public/Feedback'
+import PublicDashboard from '../pages/publicPages/Dashboard'
+import PublicMap from '../pages/publicPages/Map'
+import PublicRouteStatus from '../pages/publicPages/RouteStatus'
+import PublicHotspots from '../pages/publicPages/Hotspots'
+import PublicReportIncident from '../pages/publicPages/ReportIncident'
+import PublicFeedback from '../pages/publicPages/Feedback'
 
 // Government pages
 import GovDashboard from '../pages/gov/Dashboard'
@@ -66,7 +66,74 @@ const AppRouter = () => {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/login" element={<Login />} />
       
-      {/* Public routes */}
+      {/* Public routes at root level */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={['public', 'guest']}>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<PublicDashboard />} />
+      </Route>
+      
+      <Route
+        path="/map"
+        element={
+          <ProtectedRoute allowedRoles={['public', 'guest']}>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<PublicMap />} />
+      </Route>
+      
+      <Route
+        path="/route-status"
+        element={
+          <ProtectedRoute allowedRoles={['public', 'guest']}>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<PublicRouteStatus />} />
+      </Route>
+      
+      <Route
+        path="/hotspots"
+        element={
+          <ProtectedRoute allowedRoles={['public', 'guest']}>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<PublicHotspots />} />
+      </Route>
+      
+      <Route
+        path="/report-incident"
+        element={
+          <ProtectedRoute allowedRoles={['public', 'guest']}>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<PublicReportIncident />} />
+      </Route>
+      
+      <Route
+        path="/feedback"
+        element={
+          <ProtectedRoute allowedRoles={['public', 'guest']}>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<PublicFeedback />} />
+      </Route>
+
+      {/* Legacy public routes - redirect to root level */}
       <Route
         path="/public/*"
         element={
@@ -75,13 +142,13 @@ const AppRouter = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<PublicDashboard />} />
-        <Route path="map" element={<PublicMap />} />
-        <Route path="route-status" element={<PublicRouteStatus />} />
-        <Route path="hotspots" element={<PublicHotspots />} />
-        <Route path="report-incident" element={<PublicReportIncident />} />
-        <Route path="feedback" element={<PublicFeedback />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
+        <Route path="map" element={<Navigate to="/map" replace />} />
+        <Route path="route-status" element={<Navigate to="/route-status" replace />} />
+        <Route path="hotspots" element={<Navigate to="/hotspots" replace />} />
+        <Route path="report-incident" element={<Navigate to="/report-incident" replace />} />
+        <Route path="feedback" element={<Navigate to="/feedback" replace />} />
       </Route>
 
       {/* Government routes */}

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import ApiService from '../api/apiService'
 
-const AuthContext = createContext(null)
+export const AuthContext = createContext(null)
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
