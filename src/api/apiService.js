@@ -120,6 +120,34 @@ class ApiService {
       method: 'GET'
     })
   }
+
+  /**
+   * Search for locations in Singapore (for autocomplete)
+   */
+  static async searchLocations(query) {
+    return this.makeRequest(`/traffic/search?query=${encodeURIComponent(query)}`, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Get route with real-time traffic data
+   */
+  static async getRouteTraffic(start, end) {
+    return this.makeRequest('/traffic/route', {
+      method: 'POST',
+      body: JSON.stringify({ start, end })
+    })
+  }
+
+  /**
+   * Get current traffic speed bands (for debugging/testing)
+   */
+  static async getSpeedBands() {
+    return this.makeRequest('/traffic/speed-bands', {
+      method: 'GET'
+    })
+  }
 }
 
 export default ApiService
