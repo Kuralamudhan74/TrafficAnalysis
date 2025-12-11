@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Create blueprint for traffic routes
-traffic_bp = Blueprint('traffic', __name__)
+# Create blueprint for LTA traffic routes
+lta_bp = Blueprint('lta_traffic', __name__)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -172,7 +172,7 @@ def transform_to_geojson(lta_data):
             "error": "Data transformation failed"
         }
 
-@traffic_bp.route('/api/traffic-map', methods=['GET'])
+@lta_bp.route('/traffic-map', methods=['GET'])
 def get_traffic_map():
     """
     Fetch real-time traffic speed data from LTA API and return as GeoJSON
@@ -276,7 +276,7 @@ def get_traffic_map():
             "message": "An unexpected error occurred"
         }), 500
 
-@traffic_bp.route('/api/traffic-map/health', methods=['GET'])
+@lta_bp.route('/traffic-map/health', methods=['GET'])
 def health_check():
     """
     Health check endpoint for traffic API
@@ -291,13 +291,13 @@ def health_check():
         "api_key_configured": bool(api_key and api_key != 'your_lta_api_key_here'),
         "lta_api_url": "https://datamall2.mytransport.sg/ltaodataservice/TrafficSpeedBandsv2",
         "endpoints": {
-            "traffic_map": "/api/traffic-map",
-            "health": "/api/traffic-map/health",
-            "test": "/api/traffic-map/test"
+            "traffic_map": "/api/lta/traffic-map",
+            "health": "/api/lta/traffic-map/health",
+            "test": "/api/lta/traffic-map/test"
         }
     })
 
-@traffic_bp.route('/api/traffic-map/test', methods=['GET'])
+@lta_bp.route('/traffic-map/test', methods=['GET'])
 def test_lta_connection():
     """
     Test connection to LTA API without processing data
