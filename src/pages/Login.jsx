@@ -5,13 +5,15 @@ import { toast, ToastContainer } from '../components/Toast'
 import Input from '../components/Input'
 import Button from '../components/Button'
 import Card from '../components/Card'
+import ApiService from '../api/apiService'
 
 const Login = () => {
-  const [role, setRole] = useState('public')
+  const [role, setRole] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [twoFA, setTwoFA] = useState('')
   const [errors, setErrors] = useState({})
+  const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -20,36 +22,58 @@ const Login = () => {
     if (!email.trim()) {
       newErrors.email = 'Email is required'
     }
-    if (role !== 'public' && !password.trim()) {
+    if (!password.trim()) {
       newErrors.password = 'Password is required'
+    }
+    if (!role.trim()) {
+      newErrors.role = 'Please select a role'
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     if (!validate()) return
 
-    // Mock login - just save role and email
-    login(email || 'guest@example.com', role)
+    setIsLoading(true)
     
-    // Redirect based on role
-    const routes = {
-      public: '/public/dashboard',
-      government: '/gov/dashboard',
-      developer: '/dev/algorithms',
-      analyst: '/analyst/preprocess',
+    try {
+      // Make API call to authenticate user
+      const response = await ApiService.login({
+        email,
+        password,
+        role
+      })
+      
+      console.log('Login successful:', response)
+      
+      // Store JWT token and user data
+      login(response.user.email, response.user.role, response.token)
+      
+      // Redirect based on role
+      const routes = {
+        public: '/dashboard',
+        government: '/gov/dashboard',
+        developer: '/dev/algorithms',
+        analyst: '/analyst/preprocess',
+      }
+      
+      toast.success('Login successful!')
+      navigate(routes[response.user.role] || '/dashboard')
+      
+    } catch (error) {
+      console.error('Login failed:', error)
+      toast.error(error.message || 'Login failed. Please check your credentials.')
+    } finally {
+      setIsLoading(false)
     }
-    
-    toast.success('Login successful!')
-    navigate(routes[role] || '/public/dashboard')
   }
 
   const handleGuestAccess = () => {
     login('guest@example.com', 'guest')
     toast.success('Continuing as guest')
-    navigate('/public/dashboard')
+    navigate('/dashboard')
   }
 
   return (
@@ -81,6 +105,9 @@ const Login = () => {
               </button>
             ))}
           </div>
+          {errors.role && (
+            <p className="mt-2 text-sm text-red-600">{errors.role}</p>
+          )}
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -91,18 +118,18 @@ const Login = () => {
             onChange={(e) => setEmail(e.target.value)}
             error={errors.email}
             placeholder="Enter your email"
+            required
           />
 
-          {role !== 'public' && (
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={errors.password}
-              placeholder="Enter your password"
-            />
-          )}
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={errors.password}
+            placeholder="Enter your password"
+            required
+          />
 
           {role === 'government' && (
             <Input
@@ -115,8 +142,8 @@ const Login = () => {
           )}
 
           <div className="space-y-2">
-            <Button type="submit" className="w-full">
-              Login
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Logging in...' : 'Login'}
             </Button>
             {role === 'public' && (
               <Button
@@ -128,6 +155,16 @@ const Login = () => {
                 Continue as Guest
               </Button>
             )}
+          </div>
+          
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="text-sm text-gray-600 hover:text-primary-600 transition-colors"
+            >
+              Don't have an account? Sign Up
+            </button>
           </div>
         </form>
       </Card>
