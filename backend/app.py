@@ -10,8 +10,7 @@ from routes.auth import auth_bp
 from routes.incidents import incidents_bp
 
 from routes.traffic_routes import traffic_bp
-
-from routes.traffic import traffic_bp
+from routes.traffic import lta_bp
 
 from database_config import db
 
@@ -30,8 +29,7 @@ def create_app():
     app.register_blueprint(incidents_bp, url_prefix='/api')
 
     app.register_blueprint(traffic_bp, url_prefix='/api/traffic')
-
-    app.register_blueprint(traffic_bp)
+    app.register_blueprint(lta_bp, url_prefix='/api/lta')
 
     
     # Health check endpoint

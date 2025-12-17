@@ -11,11 +11,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database_config import get_db_connection
 
 
-def up():
+def up(cursor):
     """Create users table."""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
         
         # Create users table
         cursor.execute("""
@@ -43,12 +41,8 @@ def up():
         # Add check constraint for valid roles
         cursor.execute("""
             ALTER TABLE users ADD CONSTRAINT check_user_role 
-            CHECK (role IN ('public', 'gov', 'developer', 'analyst'))
+            CHECK (role IN ('public', 'government', 'developer', 'analyst'))
         """)
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
         
         print("✅ Users table created successfully")
         print("   - Added email and role indexes for performance")
@@ -59,18 +53,11 @@ def up():
         raise e
 
 
-def down():
+def down(cursor):
     """Drop users table (rollback function)."""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
+    try:        
         # Drop table (indexes and constraints are dropped automatically)
         cursor.execute("DROP TABLE IF EXISTS users CASCADE")
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
         
         print("✅ Users table dropped successfully")
         
