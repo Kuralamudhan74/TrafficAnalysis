@@ -148,6 +148,141 @@ class ApiService {
       method: 'GET'
     })
   }
+
+  // ========== Upload Session Management ==========
+
+  /**
+   * Create a new upload session
+   */
+  static async createUploadSession() {
+    return this.makeRequest('/upload/create-session', {
+      method: 'POST'
+    })
+  }
+
+  /**
+   * Upload road network GeoJSON file
+   */
+  static async uploadRoadNetwork(sessionId, file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('session_id', sessionId)
+
+    return fetch(`${API_BASE_URL}/upload/road-network`, {
+      method: 'POST',
+      body: formData
+    }).then(response => response.json())
+  }
+
+  /**
+   * Upload GPS trajectories CSV file
+   */
+  static async uploadGpsTrajectories(sessionId, file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('session_id', sessionId)
+
+    return fetch(`${API_BASE_URL}/upload/gps-trajectories`, {
+      method: 'POST',
+      body: formData
+    }).then(response => response.json())
+  }
+
+  /**
+   * Trigger data preprocessing
+   */
+  static async preprocessData(sessionId) {
+    return this.makeRequest('/upload/preprocess', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId })
+    })
+  }
+
+  /**
+   * Get session status
+   */
+  static async getSessionStatus(sessionId) {
+    return this.makeRequest(`/upload/session-status/${sessionId}`, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Get upload status (legacy)
+   */
+  static async getUploadStatus() {
+    return this.makeRequest('/upload/status', {
+      method: 'GET'
+    })
+  }
+
+  // ========== Bottleneck Analysis ==========
+
+  /**
+   * Run bottleneck analysis model
+   */
+  static async runBottleneckModel(sessionId, k, timeHorizon) {
+    return this.makeRequest('/bottlenecks/run-model', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        k: k,
+        time_horizon: timeHorizon,
+        model_type: 'LIM'
+      })
+    })
+  }
+
+  /**
+   * Get top K bottlenecks (cached or calculate)
+   */
+  static async getTopBottlenecks(k = 10, timeHorizon = 30, modelType = 'LIM', forceRecalculate = false) {
+    return this.makeRequest(
+      `/bottlenecks/top-k?k=${k}&time_horizon=${timeHorizon}&model_type=${modelType}&force=${forceRecalculate}`,
+      { method: 'GET' }
+    )
+  }
+
+  /**
+   * Calculate bottlenecks
+   */
+  static async calculateBottlenecks(k = 10, timeHorizon = 30, modelType = 'LIM') {
+    return this.makeRequest('/bottlenecks/calculate', {
+      method: 'POST',
+      body: JSON.stringify({
+        k: k,
+        time_horizon: timeHorizon,
+        model_type: modelType
+      })
+    })
+  }
+
+  /**
+   * Perform what-if analysis
+   */
+  static async whatIfAnalysis(fixedRoads, timeHorizon = 30, modelType = 'LIM') {
+    return this.makeRequest('/bottlenecks/what-if', {
+      method: 'POST',
+      body: JSON.stringify({
+        fixed_roads: fixedRoads,
+        time_horizon: timeHorizon,
+        model_type: modelType
+      })
+    })
+  }
+
+  /**
+   * Learn influence probabilities
+   */
+  static async learnInfluenceProbabilities(timeHorizons = [5, 15, 30], modelType = 'LIM') {
+    return this.makeRequest('/bottlenecks/learn-influence', {
+      method: 'POST',
+      body: JSON.stringify({
+        time_horizons: timeHorizons,
+        model_type: modelType
+      })
+    })
+  }
 }
 
 export default ApiService
