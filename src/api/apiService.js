@@ -283,6 +283,27 @@ class ApiService {
       })
     })
   }
+
+  /**
+   * Get influence flows for visualization (animated lines showing how congestion spreads)
+   */
+  static async getInfluenceFlows(timeHorizon = 30, minProbability = 0.3) {
+    return this.makeRequest(
+      `/bottlenecks/influence-flows?time_horizon=${timeHorizon}&min_probability=${minProbability}`,
+      { method: 'GET' }
+    )
+  }
+
+  /**
+   * Get bottleneck impacts (which roads are affected by each bottleneck)
+   */
+  static async getBottleneckImpacts(timeHorizon = 30, bottleneckId = null) {
+    const params = `time_horizon=${timeHorizon}${bottleneckId ? `&bottleneck_id=${bottleneckId}` : ''}`
+    return this.makeRequest(
+      `/bottlenecks/bottleneck-impacts?${params}`,
+      { method: 'GET' }
+    )
+  }
 }
 
 export default ApiService
