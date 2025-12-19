@@ -23,6 +23,9 @@ import GovSimulation from '../pages/gov/Simulation'
 import GovWeather from '../pages/gov/Weather'
 import GovTransport from '../pages/gov/Transport'
 import GovManageUsers from '../pages/gov/ManageUsers'
+import DataUpload from '../pages/gov/DataUpload'
+import Bottlenecks from '../pages/gov/Bottlenecks'
+import JamPrediction from '../pages/gov/JamPrediction'
 
 // Developer pages
 import DevAlgorithms from '../pages/dev/Algorithms'
@@ -171,6 +174,9 @@ const AppRouter = () => {
         <Route path="weather" element={<GovWeather />} />
         <Route path="transport" element={<GovTransport />} />
         <Route path="manage-users" element={<GovManageUsers />} />
+        <Route path="data-upload" element={<DataUpload />} />
+        <Route path="bottlenecks" element={<Bottlenecks />} />
+        <Route path="jam-prediction" element={<JamPrediction />} />
       </Route>
 
       {/* Developer routes */}
@@ -203,7 +209,10 @@ const AppRouter = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="preprocess" replace />} />
+        <Route index element={<Navigate to="data-upload" replace />} />
+        <Route path="data-upload" element={<DataUpload />} />
+        <Route path="bottlenecks" element={<Bottlenecks />} />
+        <Route path="jam-prediction" element={<JamPrediction />} />
         <Route path="preprocess" element={<AnalystPreprocess />} />
         <Route path="run-model" element={<AnalystRunModel />} />
         <Route path="trends" element={<AnalystTrends />} />
