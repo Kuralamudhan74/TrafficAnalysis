@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
 import Card from '../../components/Card'
 import Button from '../../components/Button'
@@ -24,6 +24,10 @@ const MapController = ({ center, zoom }) => {
 const Bottlenecks = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Determine base path based on current route (gov or analyst)
+  const basePath = location.pathname.startsWith('/analyst') ? '/analyst' : '/gov'
 
   // State management
   const [bottlenecks, setBottlenecks] = useState([])
@@ -186,7 +190,7 @@ const Bottlenecks = () => {
 
   // Navigate back to upload page
   const goToUpload = () => {
-    navigate('/gov/data-upload')
+    navigate(`${basePath}/data-upload`)
   }
 
   // Filter flows to show only those from highlighted bottleneck or all

@@ -209,7 +209,10 @@ const AppRouter = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="preprocess" replace />} />
+        <Route index element={<Navigate to="data-upload" replace />} />
+        <Route path="data-upload" element={<DataUpload />} />
+        <Route path="bottlenecks" element={<Bottlenecks />} />
+        <Route path="jam-prediction" element={<JamPrediction />} />
         <Route path="preprocess" element={<AnalystPreprocess />} />
         <Route path="run-model" element={<AnalystRunModel />} />
         <Route path="trends" element={<AnalystTrends />} />

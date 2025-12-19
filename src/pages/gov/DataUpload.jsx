@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import Card from '../../components/Card'
 import Button from '../../components/Button'
 import { toast, ToastContainer } from '../../components/Toast'
@@ -7,6 +7,10 @@ import ApiService from '../../api/apiService'
 
 const DataUpload = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Determine base path based on current route (gov or analyst)
+  const basePath = location.pathname.startsWith('/analyst') ? '/analyst' : '/gov'
 
   // State management
   const [sessionId, setSessionId] = useState(null)
@@ -223,7 +227,7 @@ const DataUpload = () => {
       toast.success('Model completed successfully!')
 
       // Navigate to bottlenecks page with results
-      navigate(`/gov/bottlenecks?sessionId=${sessionId}&k=${k}&horizon=${timeHorizon}`)
+      navigate(`${basePath}/bottlenecks?sessionId=${sessionId}&k=${k}&horizon=${timeHorizon}`)
 
     } catch (error) {
       console.error('Model error:', error)

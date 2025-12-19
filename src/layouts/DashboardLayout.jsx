@@ -80,8 +80,11 @@ const DashboardLayout = () => {
         ]
       case 'analyst':
         return [
-          { path: '/analyst/preprocess', label: 'Data Preprocessing', icon: FiDatabase },
-          { path: '/analyst/run-model', label: 'Run Traffic Flow Model', icon: FiTrendingUp },
+          { path: '/analyst/data-upload', label: 'Upload & Analyze', icon: FiDatabase },
+          { path: '/analyst/bottlenecks', label: 'Bottleneck Finder', icon: FiAlertCircle },
+          { path: '/analyst/jam-prediction', label: 'Jam Spread Prediction', icon: FiTrendingUp },
+          { path: '/analyst/preprocess', label: 'Data Preprocessing', icon: FiSettings },
+          { path: '/analyst/run-model', label: 'Run Traffic Flow Model', icon: FiActivity },
           { path: '/analyst/trends', label: 'View Historical Trends', icon: FiBarChart2 },
           { path: '/analyst/schedule', label: 'Schedule Automated Runs', icon: FiCalendar },
         ]
