@@ -138,7 +138,7 @@ const TrafficMap = () => {
     setError(null);
     
     try {
-      const response = await fetch('/api/traffic-map', {
+      const response = await fetch('/api/lta/traffic-map', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
