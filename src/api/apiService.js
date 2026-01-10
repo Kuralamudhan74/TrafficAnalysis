@@ -304,6 +304,52 @@ class ApiService {
       { method: 'GET' }
     )
   }
+
+  // ========== Bookmarks ==========
+
+  /**
+   * Get all bookmarks for the authenticated user
+   */
+  static async getBookmarks(token) {
+    return this.authenticatedRequest('/bookmarks', token, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Add a new bookmark
+   */
+  static async addBookmark(bookmarkData, token) {
+    return this.authenticatedRequest('/bookmarks', token, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: bookmarkData.name,
+        latitude: bookmarkData.latitude,
+        longitude: bookmarkData.longitude,
+        address: bookmarkData.address || '',
+        notes: bookmarkData.notes || ''
+      })
+    })
+  }
+
+  /**
+   * Delete a bookmark by ID
+   */
+  static async deleteBookmark(bookmarkId, token) {
+    return this.authenticatedRequest(`/bookmarks/${bookmarkId}`, token, {
+      method: 'DELETE'
+    })
+  }
+
+  /**
+   * Check if a location is already bookmarked
+   */
+  static async checkBookmark(latitude, longitude, token) {
+    return this.authenticatedRequest('/bookmarks/check', token, {
+      method: 'POST',
+      body: JSON.stringify({ latitude, longitude })
+    })
+  }
 }
 
 export default ApiService

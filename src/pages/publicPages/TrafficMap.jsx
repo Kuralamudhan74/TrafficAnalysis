@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup } from 'react-leaflet';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from '../../components/Toast';
+import ApiService from '../../api/apiService';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -18,10 +22,24 @@ const SINGAPORE_BOUNDS = [
   [1.48, 104.0]  // Northeast
 ];
 
+// Map click handler component
+const MapClickHandler = ({ onMapClick }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    map.on('click', onMapClick);
+    return () => {
+      map.off('click', onMapClick);
+    };
+  }, [map, onMapClick]);
+
+  return null;
+};
+
 // Map updater component to refresh GeoJSON data
 const MapUpdater = ({ geoJsonData, onFeatureClick }) => {
   const map = useMap();
-  
+
   useEffect(() => {
     if (geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
       // Clear existing layers (except tile layer)
@@ -30,7 +48,7 @@ const MapUpdater = ({ geoJsonData, onFeatureClick }) => {
           map.removeLayer(layer);
         }
       });
-      
+
       // Add new GeoJSON data
       const geoJsonLayer = L.geoJSON(geoJsonData, {
         style: getTrafficStyle,
@@ -45,11 +63,11 @@ const MapUpdater = ({ geoJsonData, onFeatureClick }) => {
               <div style="font-size: 12px; color: #666;">
                 <p style="margin: 2px 0;">Speed: ${props.speed.toFixed(1)} km/h</p>
                 <p style="margin: 2px 0;">Range: ${props.min_speed}-${props.max_speed} km/h</p>
-                <p style="margin: 2px 0;">Congestion: 
+                <p style="margin: 2px 0;">Congestion:
                   <span style="
-                    padding: 2px 6px; 
-                    border-radius: 4px; 
-                    font-size: 10px; 
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 10px;
                     font-weight: 600;
                     ${getCongestionBadgeStyle(props.congestion)}
                   ">
@@ -59,14 +77,14 @@ const MapUpdater = ({ geoJsonData, onFeatureClick }) => {
               </div>
             </div>
           `;
-          
+
           layer.bindTooltip(popupContent, {
             permanent: false,
             direction: 'top',
             offset: [0, -10],
             className: 'custom-tooltip'
           });
-          
+
           // Add click handler
           layer.on('click', (e) => {
             if (onFeatureClick) {
@@ -75,11 +93,11 @@ const MapUpdater = ({ geoJsonData, onFeatureClick }) => {
           });
         }
       });
-      
+
       geoJsonLayer.addTo(map);
     }
   }, [geoJsonData, map, onFeatureClick]);
-  
+
   return null;
 };
 
@@ -131,7 +149,14 @@ const TrafficMap = () => {
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [bookmarks, setBookmarks] = useState([]);
+  const [showBookmarkModal, setShowBookmarkModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [bookmarkName, setBookmarkName] = useState('');
+  const [bookmarkNotes, setBookmarkNotes] = useState('');
   const intervalRef = useRef(null);
+  const { user, token, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   // Fetch traffic data from API
   const fetchTrafficData = async () => {
     setLoading(true);
@@ -167,15 +192,27 @@ const TrafficMap = () => {
     }
   };
 
+  // Fetch user bookmarks
+  const fetchBookmarks = async () => {
+    if (!isAuthenticated || !token) return;
+
+    try {
+      const response = await ApiService.getBookmarks(token);
+      setBookmarks(response.bookmarks || []);
+    } catch (error) {
+      console.error('Error fetching bookmarks:', error);
+    }
+  };
+
   // Setup auto-refresh
   useEffect(() => {
     if (autoRefresh) {
       // Initial fetch
       fetchTrafficData();
-      
+
       // Setup interval for auto-refresh every 60 seconds
       intervalRef.current = setInterval(fetchTrafficData, 60000);
-      
+
       return () => {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
@@ -184,11 +221,80 @@ const TrafficMap = () => {
     }
   }, [autoRefresh]);
 
+  // Load bookmarks on mount if authenticated
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      fetchBookmarks();
+    }
+  }, [isAuthenticated, token]);
+
 
 
   // Handle feature click
   const handleFeatureClick = (feature, event) => {
     console.log('Road segment clicked:', feature.properties);
+  };
+
+  // Handle map click to add bookmark
+  const handleMapClick = (e) => {
+    const { lat, lng } = e.latlng;
+
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      toast.error('Please login to bookmark locations');
+      setTimeout(() => navigate('/login'), 1500);
+      return;
+    }
+
+    // Set selected location and show modal
+    setSelectedLocation({ lat, lng });
+    setBookmarkName('');
+    setBookmarkNotes('');
+    setShowBookmarkModal(true);
+  };
+
+  // Save bookmark
+  const handleSaveBookmark = async () => {
+    if (!bookmarkName.trim()) {
+      toast.error('Please enter a name for the bookmark');
+      return;
+    }
+
+    try {
+      await ApiService.addBookmark(
+        {
+          name: bookmarkName,
+          latitude: selectedLocation.lat,
+          longitude: selectedLocation.lng,
+          address: '',
+          notes: bookmarkNotes
+        },
+        token
+      );
+
+      toast.success('Bookmark added successfully!');
+      setShowBookmarkModal(false);
+      fetchBookmarks(); // Refresh bookmarks list
+    } catch (error) {
+      console.error('Error adding bookmark:', error);
+      toast.error(error.message || 'Failed to add bookmark');
+    }
+  };
+
+  // Delete bookmark
+  const handleDeleteBookmark = async (bookmarkId) => {
+    if (!window.confirm('Are you sure you want to delete this bookmark?')) {
+      return;
+    }
+
+    try {
+      await ApiService.deleteBookmark(bookmarkId, token);
+      toast.success('Bookmark deleted successfully!');
+      fetchBookmarks(); // Refresh bookmarks list
+    } catch (error) {
+      console.error('Error deleting bookmark:', error);
+      toast.error('Failed to delete bookmark');
+    }
   };
 
   // Toggle auto-refresh
@@ -303,15 +409,40 @@ const TrafficMap = () => {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          
+
+          <MapClickHandler onMapClick={handleMapClick} />
+
           {trafficData && (
-            <MapUpdater 
-              geoJsonData={trafficData} 
+            <MapUpdater
+              geoJsonData={trafficData}
               onFeatureClick={handleFeatureClick}
             />
           )}
+
+          {/* Render bookmark markers */}
+          {bookmarks.map((bookmark) => (
+            <Marker
+              key={bookmark.id}
+              position={[bookmark.latitude, bookmark.longitude]}
+            >
+              <Popup>
+                <div className="p-2">
+                  <h3 className="font-bold text-sm mb-1">{bookmark.name}</h3>
+                  {bookmark.notes && (
+                    <p className="text-xs text-gray-600 mb-2">{bookmark.notes}</p>
+                  )}
+                  <button
+                    onClick={() => handleDeleteBookmark(bookmark.id)}
+                    className="text-xs text-red-600 hover:text-red-800"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
         </MapContainer>
-        
+
         {/* Loading overlay */}
         {loading && (
           <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-[1000]">
@@ -323,7 +454,72 @@ const TrafficMap = () => {
             </div>
           </div>
         )}
+
+        {/* Bookmark hint */}
+        <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg px-4 py-2 z-[1000] text-sm text-gray-700">
+          {isAuthenticated ? (
+            <span>Click anywhere on the map to bookmark a location</span>
+          ) : (
+            <span>Login to bookmark locations</span>
+          )}
+        </div>
       </div>
+
+      {/* Bookmark Modal */}
+      {showBookmarkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000]">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Add Bookmark</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={bookmarkName}
+                  onChange={(e) => setBookmarkName(e.target.value)}
+                  placeholder="e.g., Home, Office, Favorite Spot"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={bookmarkNotes}
+                  onChange={(e) => setBookmarkNotes(e.target.value)}
+                  placeholder="Add any notes about this location"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="text-xs text-gray-500">
+                Location: {selectedLocation?.lat.toFixed(6)}, {selectedLocation?.lng.toFixed(6)}
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={handleSaveBookmark}
+                className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+              >
+                Save Bookmark
+              </button>
+              <button
+                onClick={() => setShowBookmarkModal(false)}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
