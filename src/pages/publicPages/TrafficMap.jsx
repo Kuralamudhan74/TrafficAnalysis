@@ -373,7 +373,7 @@ const TrafficMap = () => {
   const stats = getStats();
 
   return (
-    <div className="h-screen flex bg-gray-50">
+    <div className="flex-1 flex bg-gray-50 h-[calc(100vh-64px)]">
       {/* Saved Routes Sidebar */}
       {isAuthenticated && showSavedRoutes && (
         <div className="w-80 flex-shrink-0 bg-white border-r overflow-y-auto">

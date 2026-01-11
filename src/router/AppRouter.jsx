@@ -1,4 +1,4 @@
- import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import LandingPage from '../pages/LandingPage'
 import LandingPageMap from '../pages/LandingPageMap'
@@ -6,6 +6,7 @@ import Login from '../pages/Login'
 import SignupPage from '../pages/SignupPage'
 import GuestDashboard from '../pages/GuestDashboard'
 import DashboardLayout from '../layouts/DashboardLayout'
+import MapLayout from '../layouts/MapLayout'
 
 // Public pages
 import PublicDashboard from '../pages/publicPages/Dashboard'
@@ -107,7 +108,7 @@ const AppRouter = () => {
         path="/map"
         element={
           <GuestOrPublicRoute>
-            <DashboardLayout />
+            <MapLayout />
           </GuestOrPublicRoute>
         }
       >

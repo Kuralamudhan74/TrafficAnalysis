@@ -51,16 +51,9 @@ const Login = () => {
       // Store JWT token and user data
       login(response.user.email, response.user.role, response.token)
       
-      // Redirect based on role
-      const routes = {
-        public: '/dashboard',
-        government: '/gov/dashboard',
-        developer: '/dev/algorithms',
-        analyst: '/analyst/preprocess',
-      }
-      
+      // Redirect to map page after login for all roles
       toast.success('Login successful!')
-      navigate(routes[response.user.role] || '/dashboard')
+      navigate('/map')
       
     } catch (error) {
       console.error('Login failed:', error)
@@ -73,7 +66,7 @@ const Login = () => {
   const handleGuestAccess = () => {
     login('guest@example.com', 'guest')
     toast.success('Continuing as guest')
-    navigate('/dashboard')
+    navigate('/map')
   }
 
   return (
