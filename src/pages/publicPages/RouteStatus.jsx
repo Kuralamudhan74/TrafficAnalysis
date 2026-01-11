@@ -530,7 +530,7 @@ const PublicRouteStatus = () => {
               >
                 {loading ? 'Analyzing Route...' : 'Check Route Traffic'}
               </Button>
-              {routeData && selectedSource && selectedDest && (
+              {selectedSource && selectedDest && (
                 <Button
                   type="button"
                   variant="secondary"

@@ -1,6 +1,7 @@
  import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import LandingPage from '../pages/LandingPage'
+import LandingPageMap from '../pages/LandingPageMap'
 import Login from '../pages/Login'
 import SignupPage from '../pages/SignupPage'
 import GuestDashboard from '../pages/GuestDashboard'
@@ -82,7 +83,10 @@ const GuestOrPublicRoute = ({ children }) => {
 const AppRouter = () => {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      {/* Landing page with full-screen map */}
+      <Route path="/" element={<LandingPageMap />} />
+      <Route path="/landingpage/map" element={<LandingPageMap />} />
+      <Route path="/about" element={<LandingPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/guest" element={<GuestDashboard />} />
