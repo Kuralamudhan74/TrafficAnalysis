@@ -76,21 +76,29 @@ const LandingPage = () => {
             Explore live congestion maps, identify traffic hotspots, and understand how traffic 
             conditions change across the road network — all in one interactive view.
           </p>
-          <div className="flex gap-4 justify-center">
-            <Button
-              onClick={() => navigate('/signup')}
-              className="px-8 py-3 text-lg flex items-center gap-2"
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex gap-4">
+              <Button
+                onClick={() => navigate('/signup')}
+                className="px-8 py-3 text-lg flex items-center gap-2"
+              >
+                Get Started
+                <FiArrowRight />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/login')}
+                className="px-8 py-3 text-lg"
+              >
+                Login to Dashboard
+              </Button>
+            </div>
+            <button
+              onClick={() => navigate('/guest')}
+              className="text-primary-600 hover:text-primary-700 font-medium text-lg underline"
             >
-              Get Started
-              <FiArrowRight />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/login')}
-              className="px-8 py-3 text-lg"
-            >
-              Login to Dashboard
-            </Button>
+              Continue as Guest
+            </button>
           </div>
         </div>
       </section>

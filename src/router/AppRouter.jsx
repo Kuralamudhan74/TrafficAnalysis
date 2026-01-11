@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import LandingPage from '../pages/LandingPage'
 import Login from '../pages/Login'
 import SignupPage from '../pages/SignupPage'
+import GuestDashboard from '../pages/GuestDashboard'
 import DashboardLayout from '../layouts/DashboardLayout'
 
 // Public pages
@@ -63,75 +64,91 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children
 }
 
+const GuestOrPublicRoute = ({ children }) => {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+
+  if (!user) {
+    return <Navigate to="/guest" replace />
+  }
+
+  // Allow guest, public, and any authenticated user
+  return children
+}
+
 const AppRouter = () => {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/guest" element={<GuestDashboard />} />
       
-      {/* Public routes at root level */}
+      {/* Public routes at root level - accessible by guest and authenticated users */}
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute allowedRoles={['public', 'guest']}>
+          <GuestOrPublicRoute>
             <DashboardLayout />
-          </ProtectedRoute>
+          </GuestOrPublicRoute>
         }
       >
         <Route index element={<PublicDashboard />} />
       </Route>
-      
+
       <Route
         path="/map"
         element={
-          <ProtectedRoute allowedRoles={['public', 'guest']}>
+          <GuestOrPublicRoute>
             <DashboardLayout />
-          </ProtectedRoute>
+          </GuestOrPublicRoute>
         }
       >
         <Route index element={<PublicMap />} />
       </Route>
-      
+
       <Route
         path="/route-status"
         element={
-          <ProtectedRoute allowedRoles={['public', 'guest']}>
+          <GuestOrPublicRoute>
             <DashboardLayout />
-          </ProtectedRoute>
+          </GuestOrPublicRoute>
         }
       >
         <Route index element={<PublicRouteStatus />} />
       </Route>
-      
+
       <Route
         path="/hotspots"
         element={
-          <ProtectedRoute allowedRoles={['public', 'guest']}>
+          <GuestOrPublicRoute>
             <DashboardLayout />
-          </ProtectedRoute>
+          </GuestOrPublicRoute>
         }
       >
         <Route index element={<PublicHotspots />} />
       </Route>
-      
+
       <Route
         path="/report-incident"
         element={
-          <ProtectedRoute allowedRoles={['public', 'guest']}>
+          <GuestOrPublicRoute>
             <DashboardLayout />
-          </ProtectedRoute>
+          </GuestOrPublicRoute>
         }
       >
         <Route index element={<PublicReportIncident />} />
       </Route>
-      
+
       <Route
         path="/feedback"
         element={
-          <ProtectedRoute allowedRoles={['public', 'guest']}>
+          <GuestOrPublicRoute>
             <DashboardLayout />
-          </ProtectedRoute>
+          </GuestOrPublicRoute>
         }
       >
         <Route index element={<PublicFeedback />} />

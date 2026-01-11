@@ -263,3 +263,239 @@ def check_bookmark():
     except Exception as e:
         print(f"Check bookmark error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+# ========== Route Bookmarks ==========
+
+@bookmarks_bp.route('/route-bookmarks', methods=['GET'])
+@require_auth
+def get_route_bookmarks():
+    """
+    Get all route bookmarks for the authenticated user.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id, name, start_name, start_address, start_lat, start_lon,
+                   end_name, end_address, end_lat, end_lon, notes, is_favorite,
+                   created_at, updated_at
+            FROM route_bookmarks
+            WHERE user_id = %s
+            ORDER BY is_favorite DESC, created_at DESC
+        """, (request.user_id,))
+
+        routes = []
+        for row in cursor.fetchall():
+            routes.append({
+                'id': row[0],
+                'name': row[1],
+                'start': {
+                    'name': row[2],
+                    'address': row[3],
+                    'lat': float(row[4]),
+                    'lon': float(row[5])
+                },
+                'end': {
+                    'name': row[6],
+                    'address': row[7],
+                    'lat': float(row[8]),
+                    'lon': float(row[9])
+                },
+                'notes': row[10],
+                'is_favorite': row[11],
+                'created_at': row[12].isoformat() if row[12] else None,
+                'updated_at': row[13].isoformat() if row[13] else None
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'routes': routes,
+            'count': len(routes)
+        }), 200
+
+    except Exception as e:
+        print(f"Get route bookmarks error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bookmarks_bp.route('/route-bookmarks', methods=['POST'])
+@require_auth
+def add_route_bookmark():
+    """
+    Add a new route bookmark for the authenticated user.
+    Expected JSON: {
+        'name': str,
+        'start': {'name': str, 'address': str, 'lat': float, 'lon': float},
+        'end': {'name': str, 'address': str, 'lat': float, 'lon': float},
+        'notes': str (optional),
+        'is_favorite': bool (optional)
+    }
+    """
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        name = data.get('name', '').strip()
+        start = data.get('start')
+        end = data.get('end')
+        notes = data.get('notes', '').strip()
+        is_favorite = data.get('is_favorite', False)
+
+        # Validate required fields
+        if not name:
+            return jsonify({'error': 'Route name is required'}), 400
+
+        if not start or not end:
+            return jsonify({'error': 'Start and end locations are required'}), 400
+
+        # Validate start location
+        if not all(k in start for k in ['name', 'lat', 'lon']):
+            return jsonify({'error': 'Start location must include name, lat, and lon'}), 400
+
+        # Validate end location
+        if not all(k in end for k in ['name', 'lat', 'lon']):
+            return jsonify({'error': 'End location must include name, lat, and lon'}), 400
+
+        # Validate coordinates
+        try:
+            start_lat = float(start['lat'])
+            start_lon = float(start['lon'])
+            end_lat = float(end['lat'])
+            end_lon = float(end['lon'])
+
+            # Singapore bounds validation
+            if not (1.16 <= start_lat <= 1.48 and 103.6 <= start_lon <= 104.0):
+                return jsonify({'error': 'Start coordinates must be within Singapore bounds'}), 400
+            if not (1.16 <= end_lat <= 1.48 and 103.6 <= end_lon <= 104.0):
+                return jsonify({'error': 'End coordinates must be within Singapore bounds'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid coordinate format'}), 400
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Insert new route bookmark
+        cursor.execute("""
+            INSERT INTO route_bookmarks
+            (user_id, name, start_name, start_address, start_lat, start_lon,
+             end_name, end_address, end_lat, end_lon, notes, is_favorite)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, created_at
+        """, (
+            request.user_id, name,
+            start['name'], start.get('address', ''), start_lat, start_lon,
+            end['name'], end.get('address', ''), end_lat, end_lon,
+            notes or None, is_favorite
+        ))
+
+        route_id, created_at = cursor.fetchone()
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'message': 'Route bookmark added successfully',
+            'route': {
+                'id': route_id,
+                'name': name,
+                'start': start,
+                'end': end,
+                'notes': notes,
+                'is_favorite': is_favorite,
+                'created_at': created_at.isoformat() if created_at else None
+            }
+        }), 201
+
+    except Exception as e:
+        print(f"Add route bookmark error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bookmarks_bp.route('/route-bookmarks/<int:route_id>', methods=['DELETE'])
+@require_auth
+def delete_route_bookmark(route_id):
+    """
+    Delete a route bookmark by ID (only if it belongs to the authenticated user).
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if route bookmark exists and belongs to user
+        cursor.execute("""
+            SELECT id FROM route_bookmarks
+            WHERE id = %s AND user_id = %s
+        """, (route_id, request.user_id))
+
+        route = cursor.fetchone()
+        if not route:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Route bookmark not found or does not belong to you'}), 404
+
+        # Delete the route bookmark
+        cursor.execute("""
+            DELETE FROM route_bookmarks
+            WHERE id = %s AND user_id = %s
+        """, (route_id, request.user_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'message': 'Route bookmark deleted successfully'
+        }), 200
+
+    except Exception as e:
+        print(f"Delete route bookmark error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bookmarks_bp.route('/route-bookmarks/<int:route_id>/favorite', methods=['PATCH'])
+@require_auth
+def toggle_route_favorite(route_id):
+    """
+    Toggle favorite status of a route bookmark.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if route belongs to user and toggle favorite
+        cursor.execute("""
+            UPDATE route_bookmarks
+            SET is_favorite = NOT is_favorite, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s AND user_id = %s
+            RETURNING is_favorite
+        """, (route_id, request.user_id))
+
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Route bookmark not found or does not belong to you'}), 404
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'message': 'Favorite status updated',
+            'is_favorite': result[0]
+        }), 200
+
+    except Exception as e:
+        print(f"Toggle favorite error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500

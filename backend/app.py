@@ -14,6 +14,7 @@ from routes.traffic_routes import traffic_bp
 from routes.traffic import lta_bp
 from routes.data_upload import data_upload_bp
 from routes.bottlenecks import bottlenecks_bp
+from routes.jam_prediction import jam_prediction_bp
 
 from database_config import db
 
@@ -36,6 +37,7 @@ def create_app():
     app.register_blueprint(lta_bp, url_prefix='/api/lta')
     app.register_blueprint(data_upload_bp, url_prefix='/api/upload')
     app.register_blueprint(bottlenecks_bp, url_prefix='/api/bottlenecks')
+    app.register_blueprint(jam_prediction_bp, url_prefix='/api/jam-prediction')
 
     
     # Health check endpoint

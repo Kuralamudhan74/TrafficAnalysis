@@ -11,13 +11,13 @@ class ApiService {
    */
   static async makeRequest(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`
-    
+
     const defaultOptions = {
       headers: {
         'Content-Type': 'application/json',
       },
     }
-    
+
     const config = {
       ...defaultOptions,
       ...options,
@@ -26,20 +26,39 @@ class ApiService {
         ...options.headers,
       },
     }
-    
+
     try {
       const response = await fetch(url, config)
       const data = await response.json()
-      
+
       if (!response.ok) {
         throw new Error(data.error || `HTTP error! status: ${response.status}`)
       }
-      
+
       return data
     } catch (error) {
       console.error('API request failed:', error)
       throw error
     }
+  }
+
+  /**
+   * Generic GET request
+   */
+  static async get(endpoint) {
+    return this.makeRequest(endpoint, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Generic POST request
+   */
+  static async post(endpoint, data = {}) {
+    return this.makeRequest(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
   }
   
   /**
@@ -348,6 +367,51 @@ class ApiService {
     return this.authenticatedRequest('/bookmarks/check', token, {
       method: 'POST',
       body: JSON.stringify({ latitude, longitude })
+    })
+  }
+
+  // ========== Route Bookmarks ==========
+
+  /**
+   * Get all route bookmarks for the authenticated user
+   */
+  static async getRouteBookmarks(token) {
+    return this.authenticatedRequest('/route-bookmarks', token, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Add a new route bookmark
+   */
+  static async addRouteBookmark(routeData, token) {
+    return this.authenticatedRequest('/route-bookmarks', token, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: routeData.name,
+        start: routeData.start,
+        end: routeData.end,
+        notes: routeData.notes || '',
+        is_favorite: routeData.is_favorite || false
+      })
+    })
+  }
+
+  /**
+   * Delete a route bookmark by ID
+   */
+  static async deleteRouteBookmark(routeId, token) {
+    return this.authenticatedRequest(`/route-bookmarks/${routeId}`, token, {
+      method: 'DELETE'
+    })
+  }
+
+  /**
+   * Toggle favorite status of a route bookmark
+   */
+  static async toggleRouteFavorite(routeId, token) {
+    return this.authenticatedRequest(`/route-bookmarks/${routeId}/favorite`, token, {
+      method: 'PATCH'
     })
   }
 }

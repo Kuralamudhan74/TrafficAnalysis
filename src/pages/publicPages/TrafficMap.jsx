@@ -154,6 +154,8 @@ const TrafficMap = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [bookmarkName, setBookmarkName] = useState('');
   const [bookmarkNotes, setBookmarkNotes] = useState('');
+  const [savedRoutes, setSavedRoutes] = useState([]);
+  const [showSavedRoutes, setShowSavedRoutes] = useState(false);
   const intervalRef = useRef(null);
   const { user, token, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -221,10 +223,23 @@ const TrafficMap = () => {
     }
   }, [autoRefresh]);
 
+  // Fetch saved routes
+  const fetchSavedRoutes = async () => {
+    if (!isAuthenticated || !token) return;
+
+    try {
+      const response = await ApiService.getRouteBookmarks(token);
+      setSavedRoutes(response.routes || []);
+    } catch (error) {
+      console.error('Error fetching saved routes:', error);
+    }
+  };
+
   // Load bookmarks on mount if authenticated
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchBookmarks();
+      fetchSavedRoutes();
     }
   }, [isAuthenticated, token]);
 
@@ -297,6 +312,42 @@ const TrafficMap = () => {
     }
   };
 
+  // Handle loading a saved route
+  const handleLoadRoute = (route) => {
+    setShowSavedRoutes(false);
+    toast.success(`Loaded route: ${route.name}`);
+    toast.info(`From: ${route.start.name} → To: ${route.end.name}`);
+    // Navigate to route-status page with the route loaded
+    navigate('/route-status', { state: { savedRoute: route } });
+  };
+
+  // Delete saved route
+  const handleDeleteRoute = async (routeId) => {
+    if (!window.confirm('Are you sure you want to delete this saved route?')) {
+      return;
+    }
+
+    try {
+      await ApiService.deleteRouteBookmark(routeId, token);
+      toast.success('Route deleted successfully!');
+      fetchSavedRoutes();
+    } catch (error) {
+      console.error('Error deleting route:', error);
+      toast.error('Failed to delete route');
+    }
+  };
+
+  // Toggle favorite status
+  const handleToggleFavorite = async (routeId) => {
+    try {
+      await ApiService.toggleRouteFavorite(routeId, token);
+      fetchSavedRoutes();
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite');
+    }
+  };
+
   // Toggle auto-refresh
   const toggleAutoRefresh = () => {
     setAutoRefresh(!autoRefresh);
@@ -322,45 +373,134 @@ const TrafficMap = () => {
   const stats = getStats();
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Real-time Traffic Map</h1>
-            <p className="text-sm text-gray-600">
-              Live traffic congestion data from LTA DataMall API
-              {lastUpdate && (
-                <span className="ml-2">
-                  • Last updated: {lastUpdate.toLocaleTimeString()}
-                </span>
-              )}
-            </p>
+    <div className="h-screen flex bg-gray-50">
+      {/* Saved Routes Sidebar */}
+      {isAuthenticated && showSavedRoutes && (
+        <div className="w-80 flex-shrink-0 bg-white border-r overflow-y-auto">
+          <div className="p-4 border-b">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-bold text-gray-900">Saved Routes</h3>
+              <button
+                onClick={() => setShowSavedRoutes(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-gray-600">Click to load route details</p>
           </div>
-          
-          <div className="flex items-center space-x-4">
-            {/* Auto-refresh toggle */}
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={toggleAutoRefresh}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="ml-2 text-sm text-gray-700">Auto-refresh (60s)</span>
-            </label>
-            
-            {/* Manual refresh button */}
-            <button
-              onClick={fetchTrafficData}
-              disabled={loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-            >
-              {loading ? 'Loading...' : 'Refresh'}
-            </button>
+
+          <div className="p-4 space-y-3">
+            {savedRoutes.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">No saved routes yet</p>
+                <button
+                  onClick={() => navigate('/route-status')}
+                  className="mt-3 text-blue-600 hover:text-blue-700 text-sm underline"
+                >
+                  Go to Route Status to save routes
+                </button>
+              </div>
+            ) : (
+              savedRoutes.map((route) => (
+                <div
+                  key={route.id}
+                  className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1" onClick={() => handleLoadRoute(route)}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-sm text-gray-900">{route.name}</h4>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(route.id);
+                          }}
+                          className="text-yellow-500 hover:text-yellow-600"
+                        >
+                          {route.is_favorite ? '★' : '☆'}
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-600">
+                          <span className="text-green-600">●</span> {route.start.name}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          <span className="text-red-600">●</span> {route.end.name}
+                        </p>
+                      </div>
+                      {route.notes && (
+                        <p className="text-xs text-gray-500 mt-2 italic">{route.notes}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteRoute(route.id);
+                      }}
+                      className="text-red-500 hover:text-red-700 ml-2 text-sm"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Real-time Traffic Map</h1>
+              <p className="text-sm text-gray-600">
+                Live traffic congestion data from LTA DataMall API
+                {lastUpdate && (
+                  <span className="ml-2">
+                    • Last updated: {lastUpdate.toLocaleTimeString()}
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {/* Saved Routes Button */}
+              {isAuthenticated && (
+                <button
+                  onClick={() => setShowSavedRoutes(!showSavedRoutes)}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm flex items-center gap-2"
+                >
+                  <span>📍</span>
+                  <span>{showSavedRoutes ? 'Hide' : 'Saved Routes'} ({savedRoutes.length})</span>
+                </button>
+              )}
+
+              {/* Auto-refresh toggle */}
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={toggleAutoRefresh}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Auto-refresh (60s)</span>
+              </label>
+
+              {/* Manual refresh button */}
+              <button
+                onClick={fetchTrafficData}
+                disabled={loading}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                {loading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+        </div>
 
 
 
@@ -464,6 +604,7 @@ const TrafficMap = () => {
           )}
         </div>
       </div>
+    </div>
 
       {/* Bookmark Modal */}
       {showBookmarkModal && (
