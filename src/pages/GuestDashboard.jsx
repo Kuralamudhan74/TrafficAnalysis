@@ -47,7 +47,7 @@ const GuestDashboard = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <FiMap className="text-primary-600 text-2xl mr-2" />
-              <h1 className="text-2xl font-bold text-primary-600">Smart TrafficSense</h1>
+              <h1 className="text-2xl font-bold text-primary-600">Flow Radar</h1>
             </div>
             <div className="flex gap-3">
               <Button
@@ -180,10 +180,10 @@ const GuestDashboard = () => {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-4 md:mb-0">
               <FiMap className="text-primary-400 text-xl mr-2" />
-              <span className="text-lg font-semibold text-white">Smart TrafficSense</span>
+              <span className="text-lg font-semibold text-white">Flow Radar</span>
             </div>
             <p className="text-sm text-gray-400">
-              © {new Date().getFullYear()} Smart TrafficSense. All rights reserved.
+              © {new Date().getFullYear()} Flow Radar. All rights reserved.
             </p>
           </div>
         </div>

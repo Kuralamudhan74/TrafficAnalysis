@@ -196,7 +196,7 @@ const LandingPageMap = () => {
               {/* Logo */}
               <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
                 <FiMap className="text-primary-600 text-2xl mr-2" />
-                <h1 className="text-2xl font-bold text-primary-600">Smart TrafficSense</h1>
+                <h1 className="text-2xl font-bold text-primary-600">Flow Radar</h1>
               </div>
 
               {/* Auth Buttons */}

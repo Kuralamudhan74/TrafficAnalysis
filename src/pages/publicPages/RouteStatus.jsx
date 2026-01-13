@@ -536,7 +536,7 @@ const PublicRouteStatus = () => {
                   variant="secondary"
                   onClick={handleSaveRoute}
                 >
-                  {isAuthenticated && !isGuest ? '💾 Save Route' : '💾 Login to Save'}
+                  {isAuthenticated && !isGuest ? '💾 Bookmark Route' : '💾 Login to Bookmark'}
                 </Button>
               )}
             </div>

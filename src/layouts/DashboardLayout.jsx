@@ -109,7 +109,7 @@ const DashboardLayout = () => {
                 {sidebarOpen ? <FiX size={24} /> : <FiMenu size={24} />}
               </button>
               <div className="ml-4 lg:ml-0">
-                <h1 className="text-xl font-bold text-primary-600">Smart TrafficSense</h1>
+                <h1 className="text-xl font-bold text-primary-600">Flow Radar</h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">

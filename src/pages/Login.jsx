@@ -74,7 +74,7 @@ const Login = () => {
       <ToastContainer />
       <Card className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600 mb-2">Smart TrafficSense</h1>
+          <h1 className="text-3xl font-bold text-primary-600 mb-2">Flow Radar</h1>
           <p className="text-gray-600">Real-time traffic & congestion intelligence</p>
         </div>
 
