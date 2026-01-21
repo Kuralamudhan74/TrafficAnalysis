@@ -8,12 +8,100 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
 import sys
 import os
+import random
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from database_config import get_db_connection
 from utils.jwt_handler import token_required
 
 trends_bp = Blueprint('trends', __name__)
+
+
+def generate_demo_trends(timescale, date_from, date_to):
+    """
+    Generate realistic demo traffic trend data when no real data exists.
+    Simulates Singapore traffic patterns with morning/evening peaks.
+    """
+    trends = []
+
+    start_date = datetime.strptime(date_from, '%Y-%m-%d')
+    end_date = datetime.strptime(date_to, '%Y-%m-%d')
+
+    # Determine time delta based on timescale
+    if timescale == 'hourly':
+        delta = timedelta(hours=1)
+        max_points = 48  # 2 days of hourly data
+    elif timescale == 'daily':
+        delta = timedelta(days=1)
+        max_points = 60  # 2 months
+    elif timescale == 'weekly':
+        delta = timedelta(weeks=1)
+        max_points = 26  # 6 months
+    elif timescale == 'monthly':
+        delta = timedelta(days=30)
+        max_points = 24  # 2 years
+    else:  # yearly
+        delta = timedelta(days=365)
+        max_points = 5
+
+    current = start_date
+    count = 0
+
+    while current <= end_date and count < max_points:
+        # Base congestion varies by hour/day
+        hour = current.hour if timescale == 'hourly' else 12
+        day_of_week = current.weekday()
+
+        # Morning peak (7-9 AM) and evening peak (5-7 PM)
+        if 7 <= hour <= 9:
+            base_congestion = 0.65 + random.uniform(-0.1, 0.15)
+        elif 17 <= hour <= 19:
+            base_congestion = 0.70 + random.uniform(-0.1, 0.15)
+        elif 12 <= hour <= 14:
+            base_congestion = 0.45 + random.uniform(-0.1, 0.1)
+        elif 0 <= hour <= 6:
+            base_congestion = 0.15 + random.uniform(-0.05, 0.1)
+        else:
+            base_congestion = 0.35 + random.uniform(-0.1, 0.15)
+
+        # Weekends have less congestion
+        if day_of_week >= 5:
+            base_congestion *= 0.7
+
+        # Add some randomness
+        base_congestion = max(0.05, min(0.95, base_congestion))
+
+        # Calculate breakdown
+        total_samples = random.randint(800, 1500)
+        jammed_pct = base_congestion * 0.3 if base_congestion > 0.5 else base_congestion * 0.1
+        heavy_pct = base_congestion * 0.4 if base_congestion > 0.4 else base_congestion * 0.2
+        moderate_pct = 0.3 + random.uniform(-0.1, 0.1)
+        free_pct = 1 - jammed_pct - heavy_pct - moderate_pct
+
+        # Speed inversely related to congestion
+        avg_speed = 60 - (base_congestion * 45) + random.uniform(-5, 5)
+        avg_speed = max(10, min(70, avg_speed))
+
+        trends.append({
+            'timestamp': current.isoformat(),
+            'avg_congestion': round(base_congestion, 3),
+            'max_congestion': round(min(0.98, base_congestion + random.uniform(0.1, 0.25)), 3),
+            'min_congestion': round(max(0.02, base_congestion - random.uniform(0.1, 0.2)), 3),
+            'avg_speed': round(avg_speed, 1),
+            'roads_count': random.randint(150, 250),
+            'sample_count': total_samples,
+            'congestion_breakdown': {
+                'jammed': int(total_samples * jammed_pct),
+                'heavy': int(total_samples * heavy_pct),
+                'moderate': int(total_samples * moderate_pct),
+                'free': int(total_samples * free_pct)
+            }
+        })
+
+        current += delta
+        count += 1
+
+    return trends
 
 # Singapore region boundaries (lat/lon)
 SINGAPORE_REGIONS = {
@@ -145,22 +233,45 @@ def get_historical_trends():
                 }
             })
 
-        # Get summary statistics
-        cursor.execute("""
-            SELECT
-                AVG(congestion_index) as overall_avg,
-                MAX(congestion_index) as peak_congestion,
-                COUNT(DISTINCT road_node_id) as total_roads
-            FROM congestion_states cs
-            WHERE cs.timestamp >= %s AND cs.timestamp <= %s::date + INTERVAL '1 day'
-        """, [date_from, date_to])
+        # If no real data found, use demo data
+        use_demo = len(trends) == 0
 
-        summary_row = cursor.fetchone()
-        summary = {
-            'overall_avg_congestion': round(summary_row[0], 3) if summary_row[0] else 0,
-            'peak_congestion': round(summary_row[1], 3) if summary_row[1] else 0,
-            'total_roads_analyzed': summary_row[2] or 0
-        }
+        if use_demo:
+            trends = generate_demo_trends(timescale, date_from, date_to)
+            # Generate demo summary
+            if trends:
+                avg_cong = sum(t['avg_congestion'] for t in trends) / len(trends)
+                max_cong = max(t['max_congestion'] for t in trends)
+                summary = {
+                    'overall_avg_congestion': round(avg_cong, 3),
+                    'peak_congestion': round(max_cong, 3),
+                    'total_roads_analyzed': 200,
+                    'is_demo_data': True
+                }
+            else:
+                summary = {
+                    'overall_avg_congestion': 0,
+                    'peak_congestion': 0,
+                    'total_roads_analyzed': 0,
+                    'is_demo_data': True
+                }
+        else:
+            # Get summary statistics from real data
+            cursor.execute("""
+                SELECT
+                    AVG(congestion_index) as overall_avg,
+                    MAX(congestion_index) as peak_congestion,
+                    COUNT(DISTINCT road_node_id) as total_roads
+                FROM congestion_states cs
+                WHERE cs.timestamp >= %s AND cs.timestamp <= %s::date + INTERVAL '1 day'
+            """, [date_from, date_to])
+
+            summary_row = cursor.fetchone()
+            summary = {
+                'overall_avg_congestion': round(summary_row[0], 3) if summary_row[0] else 0,
+                'peak_congestion': round(summary_row[1], 3) if summary_row[1] else 0,
+                'total_roads_analyzed': summary_row[2] or 0
+            }
 
         cursor.close()
         conn.close()
@@ -173,7 +284,8 @@ def get_historical_trends():
             'region': region,
             'data_points': len(trends),
             'trends': trends,
-            'summary': summary
+            'summary': summary,
+            'is_demo_data': use_demo
         }), 200
 
     except Exception as e:

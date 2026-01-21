@@ -47,6 +47,7 @@ import AnalystPreprocess from '../pages/analyst/Preprocess'
 import AnalystRunModel from '../pages/analyst/RunModel'
 import AnalystTrends from '../pages/analyst/Trends'
 import AnalystSchedule from '../pages/analyst/Schedule'
+import AnalystAnomalies from '../pages/analyst/Anomalies'
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth()
@@ -240,6 +241,7 @@ const AppRouter = () => {
         <Route path="run-model" element={<AnalystRunModel />} />
         <Route path="trends" element={<AnalystTrends />} />
         <Route path="schedule" element={<AnalystSchedule />} />
+        <Route path="anomalies" element={<AnalystAnomalies />} />
       </Route>
     </Routes>
   )

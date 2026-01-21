@@ -87,6 +87,7 @@ const DashboardLayout = () => {
           { path: '/analyst/run-model', label: 'Run Traffic Flow Model', icon: FiActivity },
           { path: '/analyst/trends', label: 'View Historical Trends', icon: FiBarChart2 },
           { path: '/analyst/schedule', label: 'Schedule Automated Runs', icon: FiCalendar },
+          { path: '/analyst/anomalies', label: 'Detect Anomalies', icon: FiZap },
         ]
       default:
         return []

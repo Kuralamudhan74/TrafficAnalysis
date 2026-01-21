@@ -16,10 +16,24 @@ from routes.data_upload import data_upload_bp
 from routes.bottlenecks import bottlenecks_bp
 from routes.jam_prediction import jam_prediction_bp
 
-# New feature routes
+# Phase 1 feature routes
 from routes.trends import trends_bp
 from routes.users import users_bp
 from routes.algorithms import algorithms_bp
+
+# Phase 2 feature routes
+from routes.weather import weather_bp
+from routes.transport import transport_bp
+
+# Phase 3 feature routes
+from routes.schedules import schedules_bp
+from routes.anomalies import anomalies_bp
+
+# Phase 4 feature routes
+from routes.logs import logs_bp
+from routes.permissions import permissions_bp
+from routes.feedback import feedback_bp
+from routes.backups import backups_bp
 
 from database_config import db
 
@@ -44,10 +58,24 @@ def create_app():
     app.register_blueprint(bottlenecks_bp, url_prefix='/api/bottlenecks')
     app.register_blueprint(jam_prediction_bp, url_prefix='/api/jam-prediction')
 
-    # New feature blueprints
+    # Phase 1 feature blueprints
     app.register_blueprint(trends_bp, url_prefix='/api/trends')
     app.register_blueprint(users_bp, url_prefix='/api/users')
     app.register_blueprint(algorithms_bp, url_prefix='/api/algorithms')
+
+    # Phase 2 feature blueprints
+    app.register_blueprint(weather_bp, url_prefix='/api/weather')
+    app.register_blueprint(transport_bp, url_prefix='/api/transport')
+
+    # Phase 3 feature blueprints
+    app.register_blueprint(schedules_bp, url_prefix='/api/schedules')
+    app.register_blueprint(anomalies_bp, url_prefix='/api/anomalies')
+
+    # Phase 4 feature blueprints
+    app.register_blueprint(logs_bp, url_prefix='/api/logs')
+    app.register_blueprint(permissions_bp, url_prefix='/api/permissions')
+    app.register_blueprint(feedback_bp, url_prefix='/api/feedback')
+    app.register_blueprint(backups_bp, url_prefix='/api/backups')
 
 
     # Health check endpoint
