@@ -16,6 +16,11 @@ from routes.data_upload import data_upload_bp
 from routes.bottlenecks import bottlenecks_bp
 from routes.jam_prediction import jam_prediction_bp
 
+# New feature routes
+from routes.trends import trends_bp
+from routes.users import users_bp
+from routes.algorithms import algorithms_bp
+
 from database_config import db
 
 # Load environment variables from .env file
@@ -39,7 +44,12 @@ def create_app():
     app.register_blueprint(bottlenecks_bp, url_prefix='/api/bottlenecks')
     app.register_blueprint(jam_prediction_bp, url_prefix='/api/jam-prediction')
 
-    
+    # New feature blueprints
+    app.register_blueprint(trends_bp, url_prefix='/api/trends')
+    app.register_blueprint(users_bp, url_prefix='/api/users')
+    app.register_blueprint(algorithms_bp, url_prefix='/api/algorithms')
+
+
     # Health check endpoint
     @app.route('/health')
     def health_check():

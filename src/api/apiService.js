@@ -414,6 +414,238 @@ class ApiService {
       method: 'PATCH'
     })
   }
+
+  // ========== Historical Trends ==========
+
+  /**
+   * Get historical traffic trends
+   * @param {Object} params - { timescale, date_from, date_to, region, session_id }
+   */
+  static async getHistoricalTrends(params = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.timescale) queryParams.append('timescale', params.timescale)
+    if (params.date_from) queryParams.append('date_from', params.date_from)
+    if (params.date_to) queryParams.append('date_to', params.date_to)
+    if (params.region) queryParams.append('region', params.region)
+    if (params.session_id) queryParams.append('session_id', params.session_id)
+
+    return this.makeRequest(`/trends/historical?${queryParams.toString()}`, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Get traffic hotspots
+   */
+  static async getHotspots(params = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.date_from) queryParams.append('date_from', params.date_from)
+    if (params.date_to) queryParams.append('date_to', params.date_to)
+    if (params.limit) queryParams.append('limit', params.limit)
+    if (params.region) queryParams.append('region', params.region)
+
+    return this.makeRequest(`/trends/hotspots?${queryParams.toString()}`, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Get available regions
+   */
+  static async getRegions() {
+    return this.makeRequest('/trends/regions', { method: 'GET' })
+  }
+
+  /**
+   * Get road details with history
+   */
+  static async getRoadDetails(roadId, params = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.date_from) queryParams.append('date_from', params.date_from)
+    if (params.date_to) queryParams.append('date_to', params.date_to)
+    if (params.timescale) queryParams.append('timescale', params.timescale)
+
+    return this.makeRequest(`/trends/road-details/${roadId}?${queryParams.toString()}`, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Get traffic summary
+   */
+  static async getTrafficSummary() {
+    return this.makeRequest('/trends/summary', { method: 'GET' })
+  }
+
+  // ========== User Management (Admin) ==========
+
+  /**
+   * List all users (admin only)
+   */
+  static async getUsers(token, params = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.role) queryParams.append('role', params.role)
+    if (params.status) queryParams.append('status', params.status)
+    if (params.page) queryParams.append('page', params.page)
+    if (params.limit) queryParams.append('limit', params.limit)
+
+    return this.authenticatedRequest(`/users/?${queryParams.toString()}`, token, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Get a specific user
+   */
+  static async getUser(userId, token) {
+    return this.authenticatedRequest(`/users/${userId}`, token, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Create a new user (admin only)
+   */
+  static async createUser(userData, token) {
+    return this.authenticatedRequest('/users/', token, {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    })
+  }
+
+  /**
+   * Update a user
+   */
+  static async updateUser(userId, userData, token) {
+    return this.authenticatedRequest(`/users/${userId}`, token, {
+      method: 'PUT',
+      body: JSON.stringify(userData)
+    })
+  }
+
+  /**
+   * Suspend or unsuspend a user
+   */
+  static async suspendUser(userId, suspend, reason, token) {
+    return this.authenticatedRequest(`/users/${userId}/suspend`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ suspend, reason })
+    })
+  }
+
+  /**
+   * Delete (deactivate) a user
+   */
+  static async deleteUser(userId, token) {
+    return this.authenticatedRequest(`/users/${userId}`, token, {
+      method: 'DELETE'
+    })
+  }
+
+  /**
+   * Get user statistics
+   */
+  static async getUserStats(token) {
+    return this.authenticatedRequest('/users/stats', token, {
+      method: 'GET'
+    })
+  }
+
+  // ========== Algorithm Management ==========
+
+  /**
+   * List all algorithms
+   */
+  static async getAlgorithms() {
+    return this.makeRequest('/algorithms/', { method: 'GET' })
+  }
+
+  /**
+   * Get a specific algorithm
+   */
+  static async getAlgorithm(algorithmId) {
+    return this.makeRequest(`/algorithms/${algorithmId}`, { method: 'GET' })
+  }
+
+  /**
+   * List only active algorithms
+   */
+  static async getActiveAlgorithms() {
+    return this.makeRequest('/algorithms/active', { method: 'GET' })
+  }
+
+  /**
+   * Suspend an algorithm (developer only)
+   */
+  static async suspendAlgorithm(algorithmId, reason, token) {
+    return this.authenticatedRequest(`/algorithms/${algorithmId}/suspend`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ reason })
+    })
+  }
+
+  /**
+   * Activate an algorithm (developer only)
+   */
+  static async activateAlgorithm(algorithmId, token) {
+    return this.authenticatedRequest(`/algorithms/${algorithmId}/activate`, token, {
+      method: 'PUT'
+    })
+  }
+
+  /**
+   * Update algorithm parameters (developer only)
+   */
+  static async updateAlgorithmParameters(algorithmId, parameters, token) {
+    return this.authenticatedRequest(`/algorithms/${algorithmId}/parameters`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ parameters })
+    })
+  }
+
+  /**
+   * Get algorithm statistics
+   */
+  static async getAlgorithmStats() {
+    return this.makeRequest('/algorithms/stats', { method: 'GET' })
+  }
+
+  // ========== Traffic Map with Region Filter ==========
+
+  /**
+   * Get traffic map data with optional region filter
+   */
+  static async getTrafficMap(region = null) {
+    const params = region ? `?region=${encodeURIComponent(region)}` : ''
+    return this.makeRequest(`/lta/traffic-map${params}`, { method: 'GET' })
+  }
+
+  // ========== Jam Prediction API ==========
+
+  /**
+   * Get jam prediction for all roads
+   * @param {number} horizonMinutes - Prediction horizon in minutes (default 30)
+   */
+  static async getJamPrediction(horizonMinutes = 30) {
+    return this.makeRequest(`/jam-prediction/predict?horizon=${horizonMinutes}`, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Get prediction for specific links
+   * @param {Array<string>} linkIds - Array of link IDs to predict
+   * @param {number} horizonMinutes - Prediction horizon in minutes
+   */
+  static async getPredictionForLinks(linkIds, horizonMinutes = 30) {
+    return this.makeRequest('/jam-prediction/predict-links', {
+      method: 'POST',
+      body: JSON.stringify({
+        link_ids: linkIds,
+        horizon: horizonMinutes
+      })
+    })
+  }
 }
 
 export default ApiService

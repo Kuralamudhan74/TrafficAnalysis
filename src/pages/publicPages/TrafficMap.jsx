@@ -7,6 +7,22 @@ import ApiService from '../../api/apiService';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
+// Singapore region options for filtering
+const REGION_OPTIONS = [
+  { value: 'All', label: 'All Regions' },
+  { value: 'North', label: 'North' },
+  { value: 'South', label: 'South' },
+  { value: 'East', label: 'East' },
+  { value: 'West', label: 'West' },
+  { value: 'Central', label: 'Central' }
+];
+
+// Map mode options
+const MAP_MODES = {
+  LIVE: 'live',
+  PREDICTION: 'prediction'
+};
+
 // Fix default icon issue in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -156,41 +172,105 @@ const TrafficMap = () => {
   const [bookmarkNotes, setBookmarkNotes] = useState('');
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [showSavedRoutes, setShowSavedRoutes] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState('All');
+  const [mapMode, setMapMode] = useState(MAP_MODES.LIVE);
+  const [predictionHorizon, setPredictionHorizon] = useState(30); // minutes
   const intervalRef = useRef(null);
   const { user, token, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  // Fetch traffic data from API
-  const fetchTrafficData = async () => {
+  // Fetch traffic data from API (Live mode)
+  const fetchLiveTrafficData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const response = await fetch('/api/lta/traffic-map', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
+      // Use ApiService with region parameter
+      const data = await ApiService.getTrafficMap(selectedRegion !== 'All' ? selectedRegion : null);
+
       if (!data.features || !Array.isArray(data.features)) {
         throw new Error('Invalid data format received from API');
       }
-      
+
       setTrafficData(data);
       setLastUpdate(new Date());
-      
+
     } catch (err) {
       console.error('Error fetching traffic data:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch prediction data (Prediction mode)
+  const fetchPredictionData = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Call jam prediction API
+      const response = await ApiService.getJamPrediction(predictionHorizon);
+
+      if (response.success && response.predictions) {
+        // Transform predictions to GeoJSON format for map display
+        const geoJsonData = transformPredictionsToGeoJSON(response.predictions);
+        setTrafficData(geoJsonData);
+        setLastUpdate(new Date());
+      } else {
+        throw new Error('Failed to get prediction data');
+      }
+    } catch (err) {
+      console.error('Error fetching prediction data:', err);
+      setError(err.message || 'Failed to load prediction data');
+      // Fall back to live data if prediction fails
+      toast.warning('Prediction unavailable, showing live data');
+      await fetchLiveTrafficData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Transform prediction data to GeoJSON format
+  const transformPredictionsToGeoJSON = (predictions) => {
+    const features = predictions.map((pred, idx) => {
+      // Determine congestion level based on predicted jam probability
+      let congestion = 'normal';
+      if (pred.jam_probability > 0.7) {
+        congestion = 'heavy';
+      } else if (pred.jam_probability > 0.4) {
+        congestion = 'moderate';
+      }
+
+      return {
+        type: 'Feature',
+        properties: {
+          road_name: pred.road_name || `Road ${pred.link_id}`,
+          speed: pred.predicted_speed || 40,
+          min_speed: pred.predicted_speed ? pred.predicted_speed - 10 : 30,
+          max_speed: pred.predicted_speed ? pred.predicted_speed + 10 : 50,
+          congestion: congestion,
+          jam_probability: pred.jam_probability,
+          is_prediction: true
+        },
+        geometry: pred.geometry || {
+          type: 'LineString',
+          coordinates: pred.coordinates || [[103.8, 1.35], [103.81, 1.35]]
+        }
+      };
+    });
+
+    return {
+      type: 'FeatureCollection',
+      features: features
+    };
+  };
+
+  // Main fetch function that routes to appropriate data source
+  const fetchTrafficData = async () => {
+    if (mapMode === MAP_MODES.PREDICTION) {
+      await fetchPredictionData();
+    } else {
+      await fetchLiveTrafficData();
     }
   };
 
@@ -206,13 +286,13 @@ const TrafficMap = () => {
     }
   };
 
-  // Setup auto-refresh
+  // Setup auto-refresh and react to region/mode changes
   useEffect(() => {
-    if (autoRefresh) {
-      // Initial fetch
-      fetchTrafficData();
+    // Initial fetch
+    fetchTrafficData();
 
-      // Setup interval for auto-refresh every 60 seconds
+    if (autoRefresh && mapMode === MAP_MODES.LIVE) {
+      // Setup interval for auto-refresh every 60 seconds (only for live mode)
       intervalRef.current = setInterval(fetchTrafficData, 60000);
 
       return () => {
@@ -221,7 +301,23 @@ const TrafficMap = () => {
         }
       };
     }
-  }, [autoRefresh]);
+  }, [autoRefresh, selectedRegion, mapMode]);
+
+  // Handle region change
+  const handleRegionChange = (e) => {
+    setSelectedRegion(e.target.value);
+  };
+
+  // Handle map mode toggle
+  const handleModeToggle = (mode) => {
+    setMapMode(mode);
+    if (mode === MAP_MODES.PREDICTION) {
+      // Disable auto-refresh in prediction mode
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+  };
 
   // Fetch saved routes
   const fetchSavedRoutes = async () => {
@@ -456,9 +552,13 @@ const TrafficMap = () => {
         <div className="bg-white shadow-sm border-b px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Real-time Traffic Map</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {mapMode === MAP_MODES.LIVE ? 'Real-time Traffic Map' : `${predictionHorizon}-Min Traffic Prediction`}
+              </h1>
               <p className="text-sm text-gray-600">
-                Live traffic congestion data from LTA DataMall API
+                {mapMode === MAP_MODES.LIVE
+                  ? 'Live traffic congestion data from LTA DataMall API'
+                  : `Predicted traffic conditions in ${predictionHorizon} minutes`}
                 {lastUpdate && (
                   <span className="ml-2">
                     • Last updated: {lastUpdate.toLocaleTimeString()}
@@ -480,15 +580,17 @@ const TrafficMap = () => {
               )}
 
               {/* Auto-refresh toggle */}
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={toggleAutoRefresh}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Auto-refresh (60s)</span>
-              </label>
+              {mapMode === MAP_MODES.LIVE && (
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={toggleAutoRefresh}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Auto-refresh (60s)</span>
+                </label>
+              )}
 
               {/* Manual refresh button */}
               <button
@@ -502,27 +604,95 @@ const TrafficMap = () => {
           </div>
         </div>
 
+        {/* Region Filter and Map Mode Toggle Bar */}
+        <div className="bg-white border-b px-6 py-3">
+          <div className="flex items-center justify-between">
+            {/* Region Filter */}
+            <div className="flex items-center space-x-3">
+              <label className="text-sm font-medium text-gray-700">Region:</label>
+              <select
+                value={selectedRegion}
+                onChange={handleRegionChange}
+                className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {REGION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {selectedRegion !== 'All' && (
+                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                  Filtering: {selectedRegion} Singapore
+                </span>
+              )}
+            </div>
+
+            {/* Map Mode Toggle */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-gray-700 mr-2">Mode:</span>
+              <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-1">
+                <button
+                  onClick={() => handleModeToggle(MAP_MODES.LIVE)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    mapMode === MAP_MODES.LIVE
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Live
+                </button>
+                <button
+                  onClick={() => handleModeToggle(MAP_MODES.PREDICTION)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    mapMode === MAP_MODES.PREDICTION
+                      ? 'bg-white text-orange-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  30-Min Prediction
+                </button>
+              </div>
+              {mapMode === MAP_MODES.PREDICTION && (
+                <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded ml-2">
+                  AI-Powered Forecast
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
 
 
       {/* Stats Bar */}
       {stats && (
         <div className="bg-white border-b px-6 py-3">
-          <div className="flex items-center space-x-6 text-sm">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-green-500 rounded"></div>
-              <span>Normal: {stats.normal}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6 text-sm">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                <span>Normal: {stats.normal}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                <span>Moderate: {stats.moderate}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-red-500 rounded"></div>
+                <span>Heavy: {stats.heavy}</span>
+              </div>
+              <div className="text-gray-600">
+                Total segments: {stats.total}
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-              <span>Moderate: {stats.moderate}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-red-500 rounded"></div>
-              <span>Heavy: {stats.heavy}</span>
-            </div>
-            <div className="text-gray-600">
-              Total segments: {stats.total}
-            </div>
+            {mapMode === MAP_MODES.PREDICTION && (
+              <div className="text-sm text-orange-600 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                Showing predicted congestion for {predictionHorizon} minutes ahead
+              </div>
+            )}
           </div>
         </div>
       )}
