@@ -41,7 +41,7 @@ const LandingPage = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <FiMap className="text-primary-600 text-2xl mr-2" />
-              <h1 className="text-2xl font-bold text-primary-600">Smart TrafficSense</h1>
+              <h1 className="text-2xl font-bold text-primary-600">Flow Radar</h1>
             </div>
             <div className="flex gap-3">
               <Button
@@ -69,28 +69,36 @@ const LandingPage = () => {
             See the City. <span className="text-primary-600">Understand the Traffic.</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-4 leading-relaxed">
-            Smart TrafficSense is an intelligent traffic monitoring platform that transforms 
+            Flow Radar is an intelligent traffic monitoring platform that transforms 
             road and vehicle data into clear, real-time traffic insights.
           </p>
           <p className="text-lg text-gray-500 max-w-3xl mx-auto mb-10">
             Explore live congestion maps, identify traffic hotspots, and understand how traffic 
             conditions change across the road network — all in one interactive view.
           </p>
-          <div className="flex gap-4 justify-center">
-            <Button
-              onClick={() => navigate('/signup')}
-              className="px-8 py-3 text-lg flex items-center gap-2"
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex gap-4">
+              <Button
+                onClick={() => navigate('/signup')}
+                className="px-8 py-3 text-lg flex items-center gap-2"
+              >
+                Get Started
+                <FiArrowRight />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/login')}
+                className="px-8 py-3 text-lg"
+              >
+                Login to Dashboard
+              </Button>
+            </div>
+            <button
+              onClick={() => navigate('/guest')}
+              className="text-primary-600 hover:text-primary-700 font-medium text-lg underline"
             >
-              Get Started
-              <FiArrowRight />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/login')}
-              className="px-8 py-3 text-lg"
-            >
-              Login to Dashboard
-            </Button>
+              Continue as Guest
+            </button>
           </div>
         </div>
       </section>
@@ -143,7 +151,7 @@ const LandingPage = () => {
               Ready to Transform Your Traffic Experience?
             </h3>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-              Join Smart TrafficSense today and gain access to real-time traffic intelligence 
+              Join Flow Radar today and gain access to real-time traffic intelligence 
               that helps you make smarter mobility decisions.
             </p>
             <Button
@@ -172,10 +180,10 @@ const LandingPage = () => {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-4 md:mb-0">
               <FiMap className="text-primary-400 text-xl mr-2" />
-              <span className="text-lg font-semibold text-white">Smart TrafficSense</span>
+              <span className="text-lg font-semibold text-white">Flow Radar</span>
             </div>
             <p className="text-sm text-gray-400">
-              © {new Date().getFullYear()} Smart TrafficSense. All rights reserved.
+              © {new Date().getFullYear()} Flow Radar. All rights reserved.
             </p>
           </div>
         </div>

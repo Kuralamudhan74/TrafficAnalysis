@@ -87,6 +87,7 @@ const DashboardLayout = () => {
           { path: '/analyst/run-model', label: 'Run Traffic Flow Model', icon: FiActivity },
           { path: '/analyst/trends', label: 'View Historical Trends', icon: FiBarChart2 },
           { path: '/analyst/schedule', label: 'Schedule Automated Runs', icon: FiCalendar },
+          { path: '/analyst/anomalies', label: 'Detect Anomalies', icon: FiZap },
         ]
       default:
         return []
@@ -109,7 +110,7 @@ const DashboardLayout = () => {
                 {sidebarOpen ? <FiX size={24} /> : <FiMenu size={24} />}
               </button>
               <div className="ml-4 lg:ml-0">
-                <h1 className="text-xl font-bold text-primary-600">Smart TrafficSense</h1>
+                <h1 className="text-xl font-bold text-primary-600">Flow Radar</h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">

@@ -51,16 +51,9 @@ const Login = () => {
       // Store JWT token and user data
       login(response.user.email, response.user.role, response.token)
       
-      // Redirect based on role
-      const routes = {
-        public: '/dashboard',
-        government: '/gov/dashboard',
-        developer: '/dev/algorithms',
-        analyst: '/analyst/preprocess',
-      }
-      
+      // Redirect to map page after login for all roles
       toast.success('Login successful!')
-      navigate(routes[response.user.role] || '/dashboard')
+      navigate('/map')
       
     } catch (error) {
       console.error('Login failed:', error)
@@ -73,7 +66,7 @@ const Login = () => {
   const handleGuestAccess = () => {
     login('guest@example.com', 'guest')
     toast.success('Continuing as guest')
-    navigate('/dashboard')
+    navigate('/map')
   }
 
   return (
@@ -81,7 +74,7 @@ const Login = () => {
       <ToastContainer />
       <Card className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600 mb-2">Smart TrafficSense</h1>
+          <h1 className="text-3xl font-bold text-primary-600 mb-2">Flow Radar</h1>
           <p className="text-gray-600">Real-time traffic & congestion intelligence</p>
         </div>
 

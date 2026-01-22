@@ -1,4 +1,4 @@
-# Smart TrafficSense - Traffic Analytics & Monitoring Platform
+# Flow Radar - Traffic Analytics & Monitoring Platform
 
 A comprehensive React-based frontend application for traffic analytics and monitoring with multiple user roles.
 

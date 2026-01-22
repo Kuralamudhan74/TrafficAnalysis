@@ -14,6 +14,7 @@ const JamPrediction = () => {
   const [modelType, setModelType] = useState('LIM')
   const [mapCenter, setMapCenter] = useState([1.3521, 103.8198]) // Singapore
   const [mapZoom, setMapZoom] = useState(12)
+  const [statistics, setStatistics] = useState(null)
 
   // Load predictions on mount
   useEffect(() => {
@@ -28,9 +29,18 @@ const JamPrediction = () => {
     try {
       toast.info('Running jam spread prediction...')
 
-      // This will be implemented when prediction API is ready
-      // For now, show a placeholder message
-      toast.info('Jam spread prediction feature coming soon! This will predict how traffic jams spread over time using the LIM model.')
+      const response = await ApiService.post('/jam-prediction/predict', {
+        time_horizon: timeHorizon,
+        model_type: modelType
+      })
+
+      if (response.success) {
+        setPredictions(response.predictions)
+        setStatistics(response.statistics)
+        toast.success(`Prediction complete! Found ${response.predictions.length} road segments.`)
+      } else {
+        toast.error(response.error || 'Failed to run prediction')
+      }
 
     } catch (error) {
       console.error('Prediction error:', error)
@@ -88,9 +98,11 @@ const JamPrediction = () => {
                 onChange={(e) => setTimeHorizon(parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value={5}>5 minutes</option>
-                <option value={15}>15 minutes</option>
                 <option value={30}>30 minutes</option>
+                <option value={60}>1 hour</option>
+                <option value={120}>2 hours</option>
+                <option value={720}>12 hours (Half Day)</option>
+                <option value={1440}>24 hours (Full Day)</option>
               </select>
             </div>
 
@@ -118,6 +130,44 @@ const JamPrediction = () => {
         </div>
       </Card>
 
+      {/* Statistics Card */}
+      {statistics && (
+        <Card>
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold text-gray-900">Prediction Statistics</h3>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Total Roads</div>
+                <div className="text-2xl font-bold text-gray-900">{statistics.total_roads}</div>
+              </div>
+
+              <div className="bg-red-50 rounded-lg p-4">
+                <div className="text-sm text-red-600 mb-1">High Risk</div>
+                <div className="text-2xl font-bold text-red-600">{statistics.high_risk_roads}</div>
+              </div>
+
+              <div className="bg-orange-50 rounded-lg p-4">
+                <div className="text-sm text-orange-600 mb-1">Medium Risk</div>
+                <div className="text-2xl font-bold text-orange-600">{statistics.medium_risk_roads}</div>
+              </div>
+
+              <div className="bg-green-50 rounded-lg p-4">
+                <div className="text-sm text-green-600 mb-1">Low Risk</div>
+                <div className="text-2xl font-bold text-green-600">{statistics.low_risk_roads}</div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="text-sm text-blue-600 mb-1">Average Jam Probability</div>
+              <div className="text-xl font-bold text-blue-900">
+                {(statistics.average_jam_probability * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Info Card */}
       <Card>
         <div className="space-y-4">
@@ -126,8 +176,9 @@ const JamPrediction = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">Jam Spread Prediction</h4>
             <p className="text-blue-800 text-sm">
-              This feature uses the LIM (Linear Independent Cascade) model to predict how traffic jams
-              spread across the road network over time. Think of it like water spilling from one road to another.
+              This feature uses advanced models (LIM, LTM, SIR, SIS) to predict how traffic jams
+              spread across Singapore's road network over different time horizons (30 minutes to 24 hours).
+              The system analyzes historical patterns to forecast congestion risk on major roads and expressways.
             </p>
           </div>
 
@@ -160,10 +211,11 @@ const JamPrediction = () => {
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h4 className="font-medium text-gray-900 mb-2">Usage Instructions</h4>
             <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-              <li>First, upload road network and GPS data via "Upload & Analyze"</li>
-              <li>Complete the preprocessing step</li>
-              <li>Run the bottleneck analysis model</li>
-              <li>Then return here to predict jam spread from current bottlenecks</li>
+              <li>Select a time horizon (30 minutes to 24 hours) to forecast congestion</li>
+              <li>Choose a prediction model based on your use case (LIM recommended for general use)</li>
+              <li>Click "Run Prediction" to generate congestion forecasts</li>
+              <li>View results on the interactive map and detailed statistics</li>
+              <li>Click on any road marker to see detailed congestion information</li>
             </ol>
           </div>
 
@@ -195,13 +247,83 @@ const JamPrediction = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
 
+              {/* Render prediction markers */}
+              {predictions.map((prediction, index) => (
+                <CircleMarker
+                  key={index}
+                  center={[prediction.coordinates.lat, prediction.coordinates.lon]}
+                  radius={8 + (prediction.jam_probability * 12)}
+                  fillColor={getRiskColor(prediction.jam_probability)}
+                  color="#fff"
+                  weight={2}
+                  opacity={0.9}
+                  fillOpacity={0.7}
+                >
+                  <Popup>
+                    <div className="min-w-[250px]">
+                      <h4 className="font-semibold text-gray-900 mb-2">{prediction.road_name}</h4>
+
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Jam Probability:</span>
+                          <span className="font-semibold" style={{ color: getRiskColor(prediction.jam_probability) }}>
+                            {(prediction.jam_probability * 100).toFixed(1)}%
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Risk Level:</span>
+                          <span
+                            className="px-2 py-0.5 rounded-full text-xs font-medium"
+                            style={{
+                              backgroundColor: `${getRiskColor(prediction.jam_probability)}20`,
+                              color: getRiskColor(prediction.jam_probability)
+                            }}
+                          >
+                            {getRiskLevel(prediction.jam_probability)}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Duration:</span>
+                          <span className="font-medium text-gray-900">
+                            {prediction.predicted_duration_minutes} min
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Speed:</span>
+                          <span className="font-medium text-gray-900">
+                            {prediction.predicted_speed_kmh} km/h
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Affected Vehicles:</span>
+                          <span className="font-medium text-gray-900">
+                            ~{prediction.affected_vehicles_estimate}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Confidence:</span>
+                          <span className="font-medium text-gray-900">
+                            {(prediction.confidence * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
+
               {predictions.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center z-[1000] pointer-events-none">
                   <div className="bg-white bg-opacity-90 rounded-lg p-6 shadow-lg text-center max-w-md">
                     <div className="text-4xl mb-3">📍</div>
                     <h4 className="font-semibold text-gray-900 mb-2">No Predictions Yet</h4>
                     <p className="text-sm text-gray-600">
-                      Upload data and run the model to see jam spread predictions on this map
+                      Select a time horizon and model type, then click "Run Prediction" to see congestion forecasts
                     </p>
                   </div>
                 </div>
