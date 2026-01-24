@@ -40,7 +40,7 @@ const PublicDashboard = () => {
   return (
     <div className="space-y-6">
       <Card>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Smart TrafficSense</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Flow Radar</h2>
         <p className="text-gray-600">
           Access real-time traffic information, check route conditions, and stay informed about
           congestion hotspots across Singapore. Use the quick actions below to get started.

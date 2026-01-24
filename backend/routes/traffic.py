@@ -20,6 +20,25 @@ lta_bp = Blueprint('lta_traffic', __name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Singapore region boundaries (lat/lon)
+SINGAPORE_REGIONS = {
+    'North': {'lat_min': 1.40, 'lat_max': 1.47, 'lon_min': 103.75, 'lon_max': 103.90},
+    'South': {'lat_min': 1.26, 'lat_max': 1.32, 'lon_min': 103.78, 'lon_max': 103.88},
+    'East': {'lat_min': 1.30, 'lat_max': 1.40, 'lon_min': 103.90, 'lon_max': 104.05},
+    'West': {'lat_min': 1.28, 'lat_max': 1.42, 'lon_min': 103.60, 'lon_max': 103.75},
+    'Central': {'lat_min': 1.28, 'lat_max': 1.38, 'lon_min': 103.80, 'lon_max': 103.90}
+}
+
+
+def is_in_region(lat, lon, region):
+    """Check if coordinates are within a specific Singapore region."""
+    if region == 'All' or region not in SINGAPORE_REGIONS:
+        return True
+    bounds = SINGAPORE_REGIONS[region]
+    return (bounds['lat_min'] <= lat <= bounds['lat_max'] and
+            bounds['lon_min'] <= lon <= bounds['lon_max'])
+
+
 def classify_congestion(speed):
     """
     Classify congestion level based on speed
@@ -176,10 +195,16 @@ def transform_to_geojson(lta_data):
 def get_traffic_map():
     """
     Fetch real-time traffic speed data from LTA API and return as GeoJSON
+
+    Query Parameters:
+    - region: 'North', 'South', 'East', 'West', 'Central', or 'All' (default: 'All')
+
     Returns:
         JSON: GeoJSON FeatureCollection with traffic data
     """
     try:
+        # Get region filter from query params
+        region = request.args.get('region', 'All')
         # Get LTA API key from environment variables
         api_key = os.getenv('LTA_API_KEY')
         
@@ -227,12 +252,29 @@ def get_traffic_map():
                     "error": "JSON Parse Error",
                     "message": "Unable to parse response from LTA API as JSON"
                 }), 502
-            
+
             # Transform LTA data to GeoJSON format
             geojson_data = transform_to_geojson(lta_data)
-            
+
+            # Apply region filter if specified
+            if region != 'All' and region in SINGAPORE_REGIONS:
+                original_count = len(geojson_data.get('features', []))
+                filtered_features = []
+                for feature in geojson_data.get('features', []):
+                    coords = feature.get('geometry', {}).get('coordinates', [])
+                    if coords and len(coords) >= 2:
+                        # Use midpoint of line segment
+                        mid_lon = (coords[0][0] + coords[1][0]) / 2
+                        mid_lat = (coords[0][1] + coords[1][1]) / 2
+                        if is_in_region(mid_lat, mid_lon, region):
+                            filtered_features.append(feature)
+                geojson_data['features'] = filtered_features
+                geojson_data['metadata']['region'] = region
+                geojson_data['metadata']['total_segments'] = len(filtered_features)
+                logger.info(f"Region filter '{region}': {len(filtered_features)}/{original_count} segments")
+
             logger.info(f"Successfully processed {len(geojson_data.get('features', []))} traffic segments")
-            
+
             return jsonify(geojson_data)
         
         elif response.status_code == 401:

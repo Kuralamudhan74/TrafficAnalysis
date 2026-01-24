@@ -21,12 +21,23 @@ export const AuthProvider = ({ children }) => {
     const checkAuthentication = async () => {
       const storedToken = localStorage.getItem('auth_token')
       const storedUser = localStorage.getItem('trafficUser')
-      
+      const sessionUser = sessionStorage.getItem('trafficUser')
+
+      // Check for guest session first
+      if (sessionUser) {
+        const guestData = JSON.parse(sessionUser)
+        if (guestData.isGuest) {
+          setUser(guestData)
+          setLoading(false)
+          return
+        }
+      }
+
       if (storedToken && storedUser) {
         try {
           // Verify token is still valid
           const response = await ApiService.verifyToken(storedToken)
-          
+
           if (response.valid) {
             setToken(storedToken)
             setUser(JSON.parse(storedUser))
@@ -42,10 +53,10 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('trafficUser')
         }
       }
-      
+
       setLoading(false)
     }
-    
+
     checkAuthentication()
   }, [])
 
@@ -53,7 +64,7 @@ export const AuthProvider = ({ children }) => {
     const userData = { email, role }
     setUser(userData)
     localStorage.setItem('trafficUser', JSON.stringify(userData))
-    
+
     // Store token if provided (from API login)
     if (authToken) {
       setToken(authToken)
@@ -61,11 +72,19 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const loginAsGuest = () => {
+    const guestData = { email: 'guest@trafficsense.com', role: 'guest', isGuest: true }
+    setUser(guestData)
+    // Don't store guest in localStorage so it doesn't persist
+    sessionStorage.setItem('trafficUser', JSON.stringify(guestData))
+  }
+
   const logout = () => {
     setUser(null)
     setToken(null)
     localStorage.removeItem('trafficUser')
     localStorage.removeItem('auth_token')
+    sessionStorage.removeItem('trafficUser')
   }
 
   const getAuthHeader = () => {
@@ -76,9 +95,11 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     login,
+    loginAsGuest,
     logout,
     loading,
     isAuthenticated: !!user,
+    isGuest: user?.isGuest || false,
     getAuthHeader,
   }
 
