@@ -62,6 +62,8 @@ const PublicRouteStatus = () => {
   const [bookmarkNotes, setBookmarkNotes] = useState('')
   const [showSavedRoutes, setShowSavedRoutes] = useState(false)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [routeToDelete, setRouteToDelete] = useState(null)
 
   const { isAuthenticated, isGuest, token } = useAuth()
   const navigate = useNavigate()
@@ -179,13 +181,29 @@ const PublicRouteStatus = () => {
   }, [destQuery])
 
   const handleSelectSource = (location) => {
-    setSelectedSource(location)
+    // Ensure coordinates are numbers
+    const lat = parseFloat(location.lat)
+    const lon = parseFloat(location.lon)
+    
+    setSelectedSource({
+      ...location,
+      lat,
+      lon
+    })
     setSourceQuery(location.name || location.address)
     setShowSourceDropdown(false)
   }
 
   const handleSelectDest = (location) => {
-    setSelectedDest(location)
+    // Ensure coordinates are numbers
+    const lat = parseFloat(location.lat)
+    const lon = parseFloat(location.lon)
+    
+    setSelectedDest({
+      ...location,
+      lat,
+      lon
+    })
     setDestQuery(location.name || location.address)
     setShowDestDropdown(false)
   }
@@ -245,26 +263,61 @@ const PublicRouteStatus = () => {
       return
     }
 
+    // Validate that we have valid locations
+    if (!selectedSource || !selectedDest) {
+      toast.error('Please select both source and destination locations')
+      return
+    }
+
+    // Validate coordinates exist
+    if (!selectedSource.lat || !selectedSource.lon || !selectedDest.lat || !selectedDest.lon) {
+      toast.error('Invalid location coordinates. Please reselect your locations.')
+      return
+    }
+
+    // Ensure coordinates are numbers
+    const startLat = parseFloat(selectedSource.lat)
+    const startLon = parseFloat(selectedSource.lon)
+    const endLat = parseFloat(selectedDest.lat)
+    const endLon = parseFloat(selectedDest.lon)
+
+    // Validate Singapore bounds
+    if (isNaN(startLat) || isNaN(startLon) || isNaN(endLat) || isNaN(endLon)) {
+      toast.error('Invalid coordinate format. Please reselect your locations.')
+      return
+    }
+
+    if (startLat < 1.16 || startLat > 1.48 || startLon < 103.6 || startLon > 104.0) {
+      toast.error('Start location must be within Singapore')
+      return
+    }
+
+    if (endLat < 1.16 || endLat > 1.48 || endLon < 103.6 || endLon > 104.0) {
+      toast.error('End location must be within Singapore')
+      return
+    }
+
     try {
-      await ApiService.addRouteBookmark(
-        {
-          name: bookmarkName,
-          start: {
-            name: selectedSource.name,
-            address: selectedSource.address || '',
-            lat: selectedSource.lat,
-            lon: selectedSource.lon
-          },
-          end: {
-            name: selectedDest.name,
-            address: selectedDest.address || '',
-            lat: selectedDest.lat,
-            lon: selectedDest.lon
-          },
-          notes: bookmarkNotes
+      const bookmarkData = {
+        name: bookmarkName,
+        start: {
+          name: selectedSource.name,
+          address: selectedSource.address || '',
+          lat: startLat,
+          lon: startLon
         },
-        token
-      )
+        end: {
+          name: selectedDest.name,
+          address: selectedDest.address || '',
+          lat: endLat,
+          lon: endLon
+        },
+        notes: bookmarkNotes
+      }
+
+      console.log('Saving route bookmark:', bookmarkData)
+
+      await ApiService.addRouteBookmark(bookmarkData, token)
 
       toast.success('Route saved successfully!')
       setShowBookmarkModal(false)
@@ -278,17 +331,23 @@ const PublicRouteStatus = () => {
   }
 
   const handleLoadRoute = async (route) => {
+    // Ensure coordinates are numbers
+    const startLat = parseFloat(route.start.lat)
+    const startLon = parseFloat(route.start.lon)
+    const endLat = parseFloat(route.end.lat)
+    const endLon = parseFloat(route.end.lon)
+
     setSelectedSource({
       name: route.start.name,
       address: route.start.address,
-      lat: route.start.lat,
-      lon: route.start.lon
+      lat: startLat,
+      lon: startLon
     })
     setSelectedDest({
       name: route.end.name,
       address: route.end.address,
-      lat: route.end.lat,
-      lon: route.end.lon
+      lat: endLat,
+      lon: endLon
     })
     setSourceQuery(route.start.name)
     setDestQuery(route.end.name)
@@ -296,18 +355,25 @@ const PublicRouteStatus = () => {
     toast.success(`Loaded: ${route.name}`)
   }
 
-  const handleDeleteRoute = async (routeId) => {
-    if (!window.confirm('Are you sure you want to delete this saved route?')) {
-      return
-    }
+  const handleDeleteRoute = (routeId) => {
+    setRouteToDelete(routeId)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteRoute = async () => {
+    if (!routeToDelete) return
 
     try {
-      await ApiService.deleteRouteBookmark(routeId, token)
+      await ApiService.deleteRouteBookmark(routeToDelete, token)
       toast.success('Route deleted successfully!')
       fetchSavedRoutes()
+      setShowDeleteModal(false)
+      setRouteToDelete(null)
     } catch (error) {
       console.error('Error deleting route:', error)
       toast.error('Failed to delete route')
+      setShowDeleteModal(false)
+      setRouteToDelete(null)
     }
   }
 
@@ -749,6 +815,35 @@ const PublicRouteStatus = () => {
                   setBookmarkNotes('')
                 }}
                 className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Route Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">Delete Saved Route</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this saved route? This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={confirmDeleteRoute}
+                className="flex-1 bg-red-600 text-white py-2 rounded-md hover:bg-red-700 font-medium"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setRouteToDelete(null)
+                }}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 font-medium"
               >
                 Cancel
               </button>

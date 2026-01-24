@@ -15,6 +15,7 @@ import PublicRouteStatus from '../pages/publicPages/RouteStatus'
 import PublicHotspots from '../pages/publicPages/Hotspots'
 import PublicReportIncident from '../pages/publicPages/ReportIncident'
 import PublicFeedback from '../pages/publicPages/Feedback'
+import MyFeedback from '../pages/publicPages/MyFeedback'
 
 // Government pages
 import GovDashboard from '../pages/gov/Dashboard'
@@ -98,7 +99,7 @@ const AppRouter = () => {
         path="/dashboard"
         element={
           <GuestOrPublicRoute>
-            <DashboardLayout />
+            <MapLayout />
           </GuestOrPublicRoute>
         }
       >
@@ -120,7 +121,7 @@ const AppRouter = () => {
         path="/route-status"
         element={
           <GuestOrPublicRoute>
-            <DashboardLayout />
+            <MapLayout />
           </GuestOrPublicRoute>
         }
       >
@@ -131,7 +132,7 @@ const AppRouter = () => {
         path="/hotspots"
         element={
           <GuestOrPublicRoute>
-            <DashboardLayout />
+            <MapLayout />
           </GuestOrPublicRoute>
         }
       >
@@ -142,7 +143,7 @@ const AppRouter = () => {
         path="/report-incident"
         element={
           <GuestOrPublicRoute>
-            <DashboardLayout />
+            <MapLayout />
           </GuestOrPublicRoute>
         }
       >
@@ -153,11 +154,22 @@ const AppRouter = () => {
         path="/feedback"
         element={
           <GuestOrPublicRoute>
-            <DashboardLayout />
+            <MapLayout />
           </GuestOrPublicRoute>
         }
       >
         <Route index element={<PublicFeedback />} />
+      </Route>
+
+      <Route
+        path="/my-feedback"
+        element={
+          <ProtectedRoute allowedRoles={['public', 'analyst', 'government', 'developer']}>
+            <MapLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<MyFeedback />} />
       </Route>
 
       {/* Legacy public routes - redirect to root level */}

@@ -9,7 +9,7 @@ import Select from '../../components/Select'
 import Input from '../../components/Input'
 import { toast, ToastContainer } from '../../components/Toast'
 import ApiService from '../../api/apiService'
-import { FiSend, FiMessageSquare, FiRefreshCw, FiCheck, FiX } from 'react-icons/fi'
+import { FiSend, FiMessageSquare, FiRefreshCw, FiCheck, FiX, FiEdit } from 'react-icons/fi'
 
 const DevFeedback = () => {
   const [feedback, setFeedback] = useState([])
@@ -20,8 +20,15 @@ const DevFeedback = () => {
   const [statuses, setStatuses] = useState([])
   const [respondModalOpen, setRespondModalOpen] = useState(false)
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedFeedback, setSelectedFeedback] = useState(null)
   const [responseText, setResponseText] = useState('')
+  const [editData, setEditData] = useState({
+    subject: '',
+    message: '',
+    category: '',
+    broadcast: false
+  })
   const [broadcastData, setBroadcastData] = useState({
     title: '',
     message: '',
@@ -186,6 +193,45 @@ const DevFeedback = () => {
     }
   }
 
+  const openEditModal = (fb) => {
+    setSelectedFeedback(fb)
+    setEditData({
+      subject: fb.subject || '',
+      message: fb.message || '',
+      category: fb.category || '',
+      broadcast: false
+    })
+    setEditModalOpen(true)
+  }
+
+  const handleUpdateFeedback = async () => {
+    if (!editData.message.trim()) {
+      toast.error('Message cannot be empty')
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token')
+      const res = await ApiService.updateFeedback(selectedFeedback.id, editData, token)
+
+      if (res.success) {
+        toast.success(editData.broadcast ? 'Feedback updated and broadcast sent!' : 'Feedback updated successfully')
+        setEditModalOpen(false)
+        setSelectedFeedback(null)
+        setEditData({ subject: '', message: '', category: '', broadcast: false })
+        loadFeedback()
+        loadStats()
+        if (editData.broadcast) {
+          loadBroadcasts()
+        }
+      } else {
+        toast.error(res.error || 'Failed to update feedback')
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to update feedback')
+    }
+  }
+
   const getStatusVariant = (status) => {
     switch (status) {
       case 'new': return 'info'
@@ -250,9 +296,9 @@ const DevFeedback = () => {
         <div className="flex space-x-2">
           <Button
             size="sm"
-            variant="secondary"
-            onClick={() => openRespondModal(row)}
-            title="Respond"
+            variant="info"
+            onClick={() => openEditModal(row)}
+            title="Send Response to User"
           >
             <FiMessageSquare className="w-4 h-4" />
           </Button>
@@ -507,6 +553,79 @@ const DevFeedback = () => {
               Cancel
             </Button>
             <Button onClick={handleRespond}>Send Response</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Feedback Modal (SD-19) - Now Response Modal */}
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Send Response to User"
+      >
+        <div className="space-y-4">
+          {selectedFeedback && (
+            <div className="p-3 bg-gray-50 rounded border border-gray-200">
+              <div className="text-sm font-semibold text-gray-700 mb-2">
+                Original User Feedback:
+              </div>
+              <div className="text-sm text-gray-600 mb-2">
+                <strong>Subject:</strong> {selectedFeedback.subject || 'No subject'}
+              </div>
+              <div className="text-sm text-gray-600 mb-2">
+                <strong>Category:</strong> {selectedFeedback.category}
+              </div>
+              <div className="p-2 bg-white rounded border border-gray-200 mb-2">
+                <div className="text-sm text-gray-800 whitespace-pre-wrap">{selectedFeedback.message}</div>
+              </div>
+              <div className="text-xs text-gray-500">
+                From: {selectedFeedback.user_email || 'Anonymous'} | {formatDate(selectedFeedback.created_at)}
+              </div>
+            </div>
+          )}
+          <div className="border-t pt-4">
+            <div className="text-sm font-semibold text-gray-700 mb-3">
+              Your Response:
+            </div>
+            <Input
+              label="Response Subject"
+              value={editData.subject}
+              onChange={(e) => setEditData({ ...editData, subject: e.target.value })}
+              placeholder="Response subject..."
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Response Message <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={editData.message}
+                onChange={(e) => setEditData({ ...editData, message: e.target.value })}
+                className="w-full border rounded-md p-2 text-sm"
+                rows={5}
+                placeholder="Type your response to this user..."
+              />
+            </div>
+            <div className="flex items-center space-x-2 p-3 bg-yellow-50 rounded">
+              <input
+                type="checkbox"
+                id="broadcast-check"
+                checked={editData.broadcast}
+                onChange={(e) => setEditData({ ...editData, broadcast: e.target.checked })}
+                className="rounded"
+              />
+              <label htmlFor="broadcast-check" className="text-sm font-medium text-gray-700 cursor-pointer">
+                Also broadcast this response as a system-wide alert to all users
+              </label>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="secondary" onClick={() => setEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateFeedback}>
+              <FiSend className="w-4 h-4 mr-2" />
+              Send Response {editData.broadcast ? '& Broadcast' : ''}
+            </Button>
           </div>
         </div>
       </Modal>

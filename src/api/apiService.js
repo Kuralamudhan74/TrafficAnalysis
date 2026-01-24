@@ -625,9 +625,11 @@ class ApiService {
   /**
    * Get jam prediction for all roads
    * @param {number} horizonMinutes - Prediction horizon in minutes (default 30)
+   * @param {string} region - Region filter (North, South, East, West, Central, or null for all)
    */
-  static async getJamPrediction(horizonMinutes = 30) {
-    return this.makeRequest(`/jam-prediction/predict?horizon=${horizonMinutes}`, {
+  static async getJamPrediction(horizonMinutes = 30, region = null) {
+    const params = region ? `?horizon=${horizonMinutes}&region=${region}` : `?horizon=${horizonMinutes}`;
+    return this.makeRequest(`/jam-prediction/predict${params}`, {
       method: 'GET'
     })
   }
@@ -1148,6 +1150,16 @@ class ApiService {
   }
 
   /**
+   * Update feedback content (SD-19)
+   */
+  static async updateFeedback(feedbackId, feedbackData, token) {
+    return this.authenticatedRequest(`/feedback/${feedbackId}`, token, {
+      method: 'PUT',
+      body: JSON.stringify(feedbackData)
+    })
+  }
+
+  /**
    * Broadcast an existing feedback item
    */
   static async broadcastExistingFeedback(feedbackId, message, token) {
@@ -1193,6 +1205,13 @@ class ApiService {
    */
   static async getFeedbackStatuses() {
     return this.makeRequest('/feedback/statuses', { method: 'GET' })
+  }
+
+  /**
+   * Get current user's feedback submissions
+   */
+  static async getMyFeedback(token) {
+    return this.authenticatedRequest('/feedback/my-feedback', token, { method: 'GET' })
   }
 
   /**
@@ -1279,6 +1298,26 @@ class ApiService {
    */
   static async getBackupTables(token) {
     return this.authenticatedRequest('/backups/tables', token, { method: 'GET' })
+  }
+
+  // ========== Notifications ==========
+
+  /**
+   * Get notification count
+   */
+  static async getNotificationCount(token) {
+    return this.authenticatedRequest('/feedback/notifications/count', token, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Mark all notifications as read
+   */
+  static async markNotificationsRead(token) {
+    return this.authenticatedRequest('/feedback/notifications/mark-read', token, {
+      method: 'POST'
+    })
   }
 }
 

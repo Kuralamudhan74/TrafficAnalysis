@@ -364,6 +364,7 @@ python fix_existing_tables.py
 - `GET /api/feedback/` - List feedback
 - `POST /api/feedback/` - Submit feedback
 - `GET /api/feedback/:id` - Get feedback
+- `PUT /api/feedback/:id` - **Update feedback content & broadcast (SD-19)**
 - `POST /api/feedback/:id/respond` - Respond to feedback
 - `PUT /api/feedback/:id/status` - Update status
 - `POST /api/feedback/broadcast` - Send broadcast
@@ -371,6 +372,7 @@ python fix_existing_tables.py
 - `GET /api/feedback/stats` - Get stats
 - `GET /api/feedback/categories` - Categories
 - `GET /api/feedback/statuses` - Statuses
+- `DELETE /api/feedback/:id` - Delete feedback
 
 ### Backups API (NEW)
 - `GET /api/backups/` - List backups
