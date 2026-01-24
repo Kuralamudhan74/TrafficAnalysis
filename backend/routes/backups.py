@@ -22,15 +22,45 @@ backups_bp = Blueprint('backups', __name__)
 BACKUP_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backups')
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
-# Tables to backup
-BACKUP_TABLES = [
-    'users', 'algorithms', 'permissions', 'role_permissions',
-    'road_nodes', 'road_edges', 'congestion_states',
-    'incidents', 'bookmarks', 'route_bookmarks',
-    'upload_sessions', 'bottleneck_results',
-    'model_schedules', 'system_logs', 'detected_anomalies',
-    'feedback', 'backups'
+# System tables to exclude from backup list
+EXCLUDE_TABLES = [
+    'spatial_ref_sys',
+    'geography_columns', 
+    'geometry_columns',
+    'migrations'
 ]
+
+
+def get_all_tables():
+    """Dynamically fetch all tables from database, excluding system tables"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            AND table_type = 'BASE TABLE'
+            ORDER BY table_name;
+        """)
+        
+        all_tables = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        
+        # Filter out system tables
+        backup_tables = [t for t in all_tables if t not in EXCLUDE_TABLES]
+        return backup_tables
+        
+    except Exception as e:
+        print(f"Error fetching tables: {e}")
+        # Fallback to basic list if query fails
+        return ['users', 'algorithms', 'permissions', 'role_permissions',
+                'road_nodes', 'road_edges', 'congestion_states',
+                'incidents', 'bookmarks', 'route_bookmarks',
+                'upload_sessions', 'model_schedules', 'system_logs',
+                'feedback', 'backups']
 
 
 def developer_required(f):
@@ -79,7 +109,7 @@ def run_pg_dump(output_file, tables=None, compress=True):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        backup_tables = tables if tables else BACKUP_TABLES
+        backup_tables = tables if tables else get_all_tables()
 
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(f"-- Traffic Bottleneck Database Backup\n")
@@ -559,13 +589,20 @@ def get_backup_stats():
 @developer_required
 def get_available_tables():
     """Get list of tables available for backup"""
-    return jsonify({
-        'success': True,
-        'data': {
-            'tables': BACKUP_TABLES,
-            'total': len(BACKUP_TABLES)
-        }
-    }), 200
+    try:
+        tables = get_all_tables()
+        return jsonify({
+            'success': True,
+            'data': {
+                'tables': tables,
+                'total': len(tables)
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @backups_bp.route('/cleanup', methods=['DELETE'])

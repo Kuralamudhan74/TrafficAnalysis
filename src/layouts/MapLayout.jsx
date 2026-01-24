@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import ApiService from '../api/apiService'
 import {
   FiMenu,
   FiX,
@@ -11,16 +12,51 @@ import {
   FiFileText,
   FiHeart,
   FiBarChart2,
-  FiChevronDown
+  FiChevronDown,
+  FiBell
 } from 'react-icons/fi'
 
 const MapLayout = () => {
-  const { user, logout } = useAuth()
+  const { user, logout, token } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [notificationCount, setNotificationCount] = useState(0)
+  const [showNotificationPopup, setShowNotificationPopup] = useState(false)
   const dropdownRef = useRef(null)
+
+  // Fetch notification count
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (token && user) {
+        try {
+          const response = await ApiService.getNotificationCount(token)
+          if (response.success) {
+            setNotificationCount(response.data.count)
+          }
+        } catch (error) {
+          console.error('Failed to fetch notifications:', error)
+        }
+      }
+    }
+
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [token, user])
+
+  const handleNotificationClick = async () => {
+    setShowNotificationPopup(!showNotificationPopup)
+    if (notificationCount > 0) {
+      try {
+        await ApiService.markNotificationsRead(token)
+        setNotificationCount(0)
+      } catch (error) {
+        console.error('Failed to mark notifications as read:', error)
+      }
+    }
+  }
 
   const handleLogout = () => {
     logout()
@@ -51,6 +87,7 @@ const MapLayout = () => {
           { path: '/hotspots', label: 'Daily Top Hotspots', icon: FiAlertCircle },
           { path: '/report-incident', label: 'Report Road Incident', icon: FiFileText },
           { path: '/feedback', label: 'Feedback', icon: FiHeart },
+          { path: '/my-feedback', label: 'My Feedback', icon: FiHeart },
         ]
       case 'government':
         return [
@@ -174,8 +211,53 @@ const MapLayout = () => {
               </div>
             </div>
 
-            {/* Right: User Info + Logout */}
+            {/* Right: Notification Bell + User Info + Logout */}
             <div className="flex items-center space-x-4">
+              {/* Notification Bell */}
+              <div className="relative">
+                <button
+                  onClick={handleNotificationClick}
+                  className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Notifications"
+                >
+                  <FiBell size={20} />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </span>
+                  )}
+                </button>
+                
+                {/* Notification Popup */}
+                {showNotificationPopup && (
+                  <>
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999]">
+                      <div className="p-4 border-b border-gray-200">
+                        <h3 className="font-semibold text-gray-900">Notifications</h3>
+                      </div>
+                      <div className="p-4">
+                        <p className="text-sm text-gray-600 mb-3">
+                          You have {notificationCount} new notification{notificationCount !== 1 ? 's' : ''}.
+                        </p>
+                        <button
+                          onClick={() => {
+                            navigate('/my-feedback')
+                            setShowNotificationPopup(false)
+                          }}
+                          className="w-full text-sm text-blue-600 hover:text-blue-700 text-left font-medium"
+                        >
+                          View My Feedback →
+                        </button>
+                      </div>
+                    </div>
+                    <div 
+                      className="fixed inset-0 z-[9998]"
+                      onClick={() => setShowNotificationPopup(false)}
+                    />
+                  </>
+                )}
+              </div>
+
               <div className="hidden sm:block text-sm text-gray-600">
                 <span className="font-medium">{user?.role || 'Guest'}</span>
                 {user?.email && <span className="ml-2 text-gray-400">• {user.email}</span>}

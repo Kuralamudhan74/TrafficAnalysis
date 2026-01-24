@@ -72,8 +72,12 @@ def list_feedback():
     """List all feedback with filtering (admin only)"""
     try:
         # Pagination
-        page = int(request.args.get('page', 1))
-        limit = min(int(request.args.get('limit', 20)), 100)
+        try:
+            page = int(request.args.get('page', '1'))
+            limit = min(int(request.args.get('limit', '20')), 100)
+        except (ValueError, TypeError):
+            page = 1
+            limit = 20
         offset = (page - 1) * limit
 
         # Filters
@@ -456,7 +460,11 @@ def create_broadcast():
 def get_broadcasts():
     """Get all broadcast messages (public endpoint)"""
     try:
-        limit = min(int(request.args.get('limit', 10)), 50)
+        limit_param = request.args.get('limit', '10')
+        try:
+            limit = min(int(limit_param), 50)
+        except (ValueError, TypeError):
+            limit = 10
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -584,6 +592,158 @@ def get_statuses():
     }), 200
 
 
+@feedback_bp.route('/my-feedback', methods=['GET'])
+@token_optional
+def get_my_feedback():
+    """Get current user's feedback submissions with responses"""
+    try:
+        user = request.current_user
+        
+        if not user:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get user's feedback with response information
+        cursor.execute("""
+            SELECT 
+                f.id,
+                f.category,
+                f.subject,
+                f.message,
+                f.rating,
+                f.status,
+                f.created_at,
+                f.admin_response,
+                f.responded_at,
+                u.email as responded_by_email,
+                f.is_broadcast,
+                f.broadcast_message,
+                f.broadcast_at
+            FROM feedback f
+            LEFT JOIN users u ON f.responded_by = u.id
+            WHERE f.user_id = %s
+            ORDER BY f.created_at DESC
+        """, (user.get('id'),))
+        
+        columns = [desc[0] for desc in cursor.description]
+        feedback_list = []
+        
+        for row in cursor.fetchall():
+            fb = dict(zip(columns, row))
+            # Convert datetime objects to ISO format
+            for key in ['created_at', 'responded_at', 'broadcast_at']:
+                if fb.get(key):
+                    fb[key] = fb[key].isoformat()
+            feedback_list.append(fb)
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'feedback': feedback_list,
+                'total': len(feedback_list)
+            }
+        }), 200
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@feedback_bp.route('/<int:feedback_id>', methods=['PUT'])
+@admin_required
+def update_feedback(feedback_id):
+    """Update feedback content and optionally broadcast as alert (SD-19)"""
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+
+        data = request.get_json()
+        
+        # Fields that can be updated
+        subject = data.get('subject', '').strip()
+        message = data.get('message', '').strip()
+        category = data.get('category')
+        should_broadcast = data.get('broadcast', False)
+        
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        if category and category not in FEEDBACK_CATEGORIES:
+            return jsonify({'error': f'Invalid category. Must be one of: {FEEDBACK_CATEGORIES}'}), 400
+        
+        user = request.current_user
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Build update query dynamically
+        update_fields = []
+        params = []
+        
+        if subject:
+            update_fields.append("subject = %s")
+            params.append(subject)
+        
+        update_fields.append("message = %s")
+        params.append(message)
+        
+        if category:
+            update_fields.append("category = %s")
+            params.append(category)
+        
+        # If broadcasting, set broadcast fields
+        if should_broadcast:
+            update_fields.extend([
+                "is_broadcast = TRUE",
+                "broadcast_message = %s",
+                "broadcast_at = CURRENT_TIMESTAMP",
+                "broadcast_by = %s",
+                "status = 'broadcast'"
+            ])
+            params.extend([message, user.get('id')])
+        
+        # Add feedback_id for WHERE clause
+        params.append(feedback_id)
+        
+        query = f"""
+            UPDATE feedback
+            SET {', '.join(update_fields)}
+            WHERE id = %s
+            RETURNING id, message, broadcast_at
+        """
+        
+        cursor.execute(query, params)
+        result = cursor.fetchone()
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+        
+        if not result:
+            return jsonify({'error': 'Feedback not found'}), 404
+        
+        response_data = {
+            'success': True,
+            'message': 'Feedback updated successfully'
+        }
+        
+        if should_broadcast:
+            response_data['message'] = 'Feedback updated and broadcast sent successfully'
+            response_data['data'] = {
+                'id': result[0],
+                'broadcast_at': result[2].isoformat() if result[2] else None
+            }
+        
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @feedback_bp.route('/<int:feedback_id>', methods=['DELETE'])
 @admin_required
 def delete_feedback(feedback_id):
@@ -605,6 +765,92 @@ def delete_feedback(feedback_id):
         return jsonify({
             'success': True,
             'message': 'Feedback deleted'
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@feedback_bp.route('/notifications/count', methods=['GET'])
+@token_optional
+def get_notification_count():
+    """Get count of unread notifications for current user"""
+    try:
+        user = request.current_user
+        if not user:
+            return jsonify({'success': True, 'data': {'count': 0, 'broadcasts': 0, 'responses': 0}}), 200
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Count unread broadcasts (created after user's last check)
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM feedback 
+            WHERE is_broadcast = TRUE 
+            AND broadcast_at > COALESCE(
+                (SELECT last_checked_notifications FROM users WHERE id = %s),
+                '1970-01-01'
+            )
+        """, (user.get('id'),))
+        broadcast_count = cursor.fetchone()[0]
+
+        # Count unread responses to user's feedback
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM feedback 
+            WHERE user_id = %s 
+            AND admin_response IS NOT NULL 
+            AND responded_at > COALESCE(
+                (SELECT last_checked_notifications FROM users WHERE id = %s),
+                '1970-01-01'
+            )
+        """, (user.get('id'), user.get('id')))
+        response_count = cursor.fetchone()[0]
+
+        cursor.close()
+        conn.close()
+
+        total_count = broadcast_count + response_count
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'count': total_count,
+                'broadcasts': broadcast_count,
+                'responses': response_count
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@feedback_bp.route('/notifications/mark-read', methods=['POST'])
+@token_optional
+def mark_notifications_read():
+    """Mark all notifications as read for current user"""
+    try:
+        user = request.current_user
+        if not user:
+            return jsonify({'error': 'Authentication required'}), 401
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE users 
+            SET last_checked_notifications = CURRENT_TIMESTAMP 
+            WHERE id = %s
+        """, (user.get('id'),))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': 'Notifications marked as read'
         }), 200
 
     except Exception as e:

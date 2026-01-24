@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup, Rectangle, Tooltip } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from '../../components/Toast';
@@ -16,6 +16,15 @@ const REGION_OPTIONS = [
   { value: 'West', label: 'West' },
   { value: 'Central', label: 'Central' }
 ];
+
+// Region boundaries for map overlays and filtering
+const REGION_BOUNDARIES = {
+  North: { bounds: [[1.38, 103.70], [1.47, 103.92]], center: [1.425, 103.81], zoom: 12 },
+  South: { bounds: [[1.24, 103.76], [1.32, 103.90]], center: [1.28, 103.83], zoom: 12 },
+  East: { bounds: [[1.28, 103.88], [1.42, 104.10]], center: [1.35, 103.99], zoom: 12 },
+  West: { bounds: [[1.28, 103.60], [1.44, 103.80]], center: [1.36, 103.70], zoom: 12 },
+  Central: { bounds: [[1.26, 103.78], [1.38, 103.88]], center: [1.32, 103.83], zoom: 13 }
+};
 
 // Map mode options
 const MAP_MODES = {
@@ -49,6 +58,19 @@ const MapClickHandler = ({ onMapClick }) => {
     };
   }, [map, onMapClick]);
 
+  return null;
+};
+
+// Map reference handler component
+const MapRefHandler = ({ mapRef }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (mapRef) {
+      mapRef.current = map;
+    }
+  }, [map, mapRef]);
+  
   return null;
 };
 
@@ -175,7 +197,14 @@ const TrafficMap = () => {
   const [selectedRegion, setSelectedRegion] = useState('All');
   const [mapMode, setMapMode] = useState(MAP_MODES.LIVE);
   const [predictionHorizon, setPredictionHorizon] = useState(30); // minutes
+  const [showDeleteBookmarkModal, setShowDeleteBookmarkModal] = useState(false);
+  const [bookmarkToDelete, setBookmarkToDelete] = useState(null);
+  const [showDeleteRouteModal, setShowDeleteRouteModal] = useState(false);
+  const [routeToDelete, setRouteToDelete] = useState(null);
+  const [hoveredRegion, setHoveredRegion] = useState(null);
   const intervalRef = useRef(null);
+  const mapRef = useRef(null);
+  const isRegionClickRef = useRef(false);
   const { user, token, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   // Fetch traffic data from API (Live mode)
@@ -208,8 +237,9 @@ const TrafficMap = () => {
     setError(null);
 
     try {
-      // Call jam prediction API
-      const response = await ApiService.getJamPrediction(predictionHorizon);
+      // Call jam prediction API with region filter
+      const region = selectedRegion !== 'All' ? selectedRegion : null;
+      const response = await ApiService.getJamPrediction(predictionHorizon, region);
 
       if (response.success && response.predictions) {
         // Transform predictions to GeoJSON format for map display
@@ -245,16 +275,16 @@ const TrafficMap = () => {
         type: 'Feature',
         properties: {
           road_name: pred.road_name || `Road ${pred.link_id}`,
-          speed: pred.predicted_speed || 40,
-          min_speed: pred.predicted_speed ? pred.predicted_speed - 10 : 30,
-          max_speed: pred.predicted_speed ? pred.predicted_speed + 10 : 50,
+          speed: pred.predicted_speed_kmh || 40,
+          min_speed: pred.predicted_speed_kmh ? pred.predicted_speed_kmh - 10 : 30,
+          max_speed: pred.predicted_speed_kmh ? pred.predicted_speed_kmh + 10 : 50,
           congestion: congestion,
           jam_probability: pred.jam_probability,
           is_prediction: true
         },
         geometry: pred.geometry || {
           type: 'LineString',
-          coordinates: pred.coordinates || [[103.8, 1.35], [103.81, 1.35]]
+          coordinates: [[103.8, 1.35], [103.81, 1.35]]
         }
       };
     });
@@ -305,7 +335,35 @@ const TrafficMap = () => {
 
   // Handle region change
   const handleRegionChange = (e) => {
-    setSelectedRegion(e.target.value);
+    const newRegion = e.target.value;
+    setSelectedRegion(newRegion);
+    
+    // Zoom to region if specific region selected
+    if (newRegion !== 'All' && mapRef.current && REGION_BOUNDARIES[newRegion]) {
+      const regionData = REGION_BOUNDARIES[newRegion];
+      mapRef.current.setView(regionData.center, regionData.zoom);
+    } else if (newRegion === 'All' && mapRef.current) {
+      // Reset to default Singapore view
+      mapRef.current.setView(SINGAPORE_CENTER, 11);
+    }
+  };
+
+  // Handle region boundary click
+  const handleRegionClick = (regionName) => {
+    isRegionClickRef.current = true;
+    setSelectedRegion(regionName);
+    toast.info(`Filtering: ${regionName} region`);
+    
+    // Zoom to region
+    if (mapRef.current && REGION_BOUNDARIES[regionName]) {
+      const regionData = REGION_BOUNDARIES[regionName];
+      mapRef.current.setView(regionData.center, regionData.zoom);
+    }
+    
+    // Reset flag after a short delay
+    setTimeout(() => {
+      isRegionClickRef.current = false;
+    }, 100);
   };
 
   // Handle map mode toggle
@@ -348,6 +406,11 @@ const TrafficMap = () => {
 
   // Handle map click to add bookmark
   const handleMapClick = (e) => {
+    // Ignore clicks on regions
+    if (isRegionClickRef.current) {
+      return;
+    }
+    
     const { lat, lng } = e.latlng;
 
     // Check if user is authenticated
@@ -393,18 +456,25 @@ const TrafficMap = () => {
   };
 
   // Delete bookmark
-  const handleDeleteBookmark = async (bookmarkId) => {
-    if (!window.confirm('Are you sure you want to delete this bookmark?')) {
-      return;
-    }
+  const handleDeleteBookmark = (bookmarkId) => {
+    setBookmarkToDelete(bookmarkId);
+    setShowDeleteBookmarkModal(true);
+  };
+
+  const confirmDeleteBookmark = async () => {
+    if (!bookmarkToDelete) return;
 
     try {
-      await ApiService.deleteBookmark(bookmarkId, token);
+      await ApiService.deleteBookmark(bookmarkToDelete, token);
       toast.success('Bookmark deleted successfully!');
       fetchBookmarks(); // Refresh bookmarks list
+      setShowDeleteBookmarkModal(false);
+      setBookmarkToDelete(null);
     } catch (error) {
       console.error('Error deleting bookmark:', error);
       toast.error('Failed to delete bookmark');
+      setShowDeleteBookmarkModal(false);
+      setBookmarkToDelete(null);
     }
   };
 
@@ -418,18 +488,25 @@ const TrafficMap = () => {
   };
 
   // Delete saved route
-  const handleDeleteRoute = async (routeId) => {
-    if (!window.confirm('Are you sure you want to delete this saved route?')) {
-      return;
-    }
+  const handleDeleteRoute = (routeId) => {
+    setRouteToDelete(routeId);
+    setShowDeleteRouteModal(true);
+  };
+
+  const confirmDeleteRoute = async () => {
+    if (!routeToDelete) return;
 
     try {
-      await ApiService.deleteRouteBookmark(routeId, token);
+      await ApiService.deleteRouteBookmark(routeToDelete, token);
       toast.success('Route deleted successfully!');
       fetchSavedRoutes();
+      setShowDeleteRouteModal(false);
+      setRouteToDelete(null);
     } catch (error) {
       console.error('Error deleting route:', error);
       toast.error('Failed to delete route');
+      setShowDeleteRouteModal(false);
+      setRouteToDelete(null);
     }
   };
 
@@ -720,6 +797,7 @@ const TrafficMap = () => {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
+          <MapRefHandler mapRef={mapRef} />
           <MapClickHandler onMapClick={handleMapClick} />
 
           {trafficData && (
@@ -728,6 +806,36 @@ const TrafficMap = () => {
               onFeatureClick={handleFeatureClick}
             />
           )}
+
+          {/* Region overlays - show when no specific region is selected */}
+          {selectedRegion === 'All' && Object.entries(REGION_BOUNDARIES).map(([regionName, data]) => (
+            <Rectangle
+              key={regionName}
+              bounds={data.bounds}
+              pathOptions={{
+                color: hoveredRegion === regionName ? '#3B82F6' : '#94A3B8',
+                weight: 2,
+                fillOpacity: hoveredRegion === regionName ? 0.1 : 0.05,
+                fillColor: hoveredRegion === regionName ? '#3B82F6' : '#94A3B8'
+              }}
+              eventHandlers={{
+                mouseover: () => setHoveredRegion(regionName),
+                mouseout: () => setHoveredRegion(null),
+                click: () => {
+                  handleRegionClick(regionName);
+                }
+              }}
+            >
+              <Tooltip permanent={hoveredRegion === regionName} direction="center">
+                <div className="text-center font-semibold">
+                  {regionName}
+                  {hoveredRegion === regionName && (
+                    <div className="text-xs font-normal mt-1">Click to filter</div>
+                  )}
+                </div>
+              </Tooltip>
+            </Rectangle>
+          ))}
 
           {/* Render bookmark markers */}
           {bookmarks.map((bookmark) => (
@@ -824,6 +932,64 @@ const TrafficMap = () => {
               <button
                 onClick={() => setShowBookmarkModal(false)}
                 className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Bookmark Confirmation Modal */}
+      {showDeleteBookmarkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">Delete Bookmark</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this bookmark? This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={confirmDeleteBookmark}
+                className="flex-1 bg-red-600 text-white py-2 rounded-md hover:bg-red-700 font-medium"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteBookmarkModal(false);
+                  setBookmarkToDelete(null);
+                }}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Route Confirmation Modal */}
+      {showDeleteRouteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">Delete Saved Route</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this saved route? This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={confirmDeleteRoute}
+                className="flex-1 bg-red-600 text-white py-2 rounded-md hover:bg-red-700 font-medium"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteRouteModal(false);
+                  setRouteToDelete(null);
+                }}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 font-medium"
               >
                 Cancel
               </button>

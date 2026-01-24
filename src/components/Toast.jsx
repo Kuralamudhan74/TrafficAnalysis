@@ -9,6 +9,7 @@ export const toast = {
   success: (message) => addToast('success', message),
   error: (message) => addToast('error', message),
   info: (message) => addToast('info', message),
+  warning: (message) => addToast('warning', message),
 }
 
 const addToast = (type, message) => {
@@ -46,12 +47,14 @@ export const ToastContainer = () => {
     success: FiCheckCircle,
     error: FiAlertCircle,
     info: FiAlertCircle,
+    warning: FiAlertCircle,
   }
 
   const colors = {
     success: 'bg-green-50 text-green-800 border-green-200',
     error: 'bg-red-50 text-red-800 border-red-200',
     info: 'bg-blue-50 text-blue-800 border-blue-200',
+    warning: 'bg-yellow-50 text-yellow-800 border-yellow-200',
   }
 
   return (
