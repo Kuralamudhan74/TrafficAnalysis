@@ -13,7 +13,9 @@ import {
   FiHeart,
   FiBarChart2,
   FiChevronDown,
-  FiBell
+  FiBell,
+  FiDatabase,
+  FiShield
 } from 'react-icons/fi'
 
 const MapLayout = () => {
@@ -104,8 +106,11 @@ const MapLayout = () => {
         return [
           { path: '/dev/algorithms', label: 'Algorithms', icon: FiBarChart2 },
           { path: '/map', label: 'Live Congestion Map', icon: FiMap },
-          { path: '/dev/performance', label: 'Performance', icon: FiBarChart2 },
-          { path: '/dev/logs', label: 'Logs', icon: FiFileText },
+          { path: '/dev/backup', label: 'Backup & Restore', icon: FiDatabase },
+          { path: '/dev/access-roles', label: 'Access Roles', icon: FiShield },
+          { path: '/dev/feedback', label: 'Feedback Management', icon: FiHeart },
+          // { path: '/dev/performance', label: 'Performance', icon: FiBarChart2 }, // Kept for future use
+          // { path: '/dev/logs', label: 'Logs', icon: FiFileText }, // Kept for future use
         ]
       case 'analyst':
         return [

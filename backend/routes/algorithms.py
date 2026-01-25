@@ -12,6 +12,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from database_config import get_db_connection
 from utils.jwt_handler import validate_jwt_token
+from utils.permission_handler import permission_required
 
 algorithms_bp = Blueprint('algorithms', __name__)
 
@@ -41,10 +42,11 @@ def developer_required(f):
 
 
 @algorithms_bp.route('/', methods=['GET'])
-def list_algorithms():
+@permission_required('view_algorithms')
+def list_algorithms(current_user):
     """
     List all available algorithms.
-    Public endpoint - no authentication required for viewing.
+    Requires view_algorithms permission.
     """
     try:
         conn = get_db_connection()
@@ -133,8 +135,8 @@ def get_algorithm(algorithm_id):
 
 
 @algorithms_bp.route('/<int:algorithm_id>/suspend', methods=['PUT'])
-@developer_required
-def suspend_algorithm(algorithm_id):
+@permission_required('suspend_algorithm')
+def suspend_algorithm(algorithm_id, current_user):
     """
     Suspend an algorithm (developer only).
 
@@ -189,8 +191,8 @@ def suspend_algorithm(algorithm_id):
 
 
 @algorithms_bp.route('/<int:algorithm_id>/activate', methods=['PUT'])
-@developer_required
-def activate_algorithm(algorithm_id):
+@permission_required('activate_algorithm')
+def activate_algorithm(algorithm_id, current_user):
     """Activate a suspended algorithm (developer only)."""
     try:
         conn = get_db_connection()
@@ -233,10 +235,10 @@ def activate_algorithm(algorithm_id):
 
 
 @algorithms_bp.route('/<int:algorithm_id>/parameters', methods=['PUT'])
-@developer_required
-def update_parameters(algorithm_id):
+@permission_required('manage_algorithms')
+def update_parameters(algorithm_id, current_user):
     """
-    Update algorithm parameters (developer only).
+    Update algorithm parameters.
 
     Expected JSON: {
         'parameters': object

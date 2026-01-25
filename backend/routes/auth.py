@@ -13,6 +13,7 @@ import os
 # Add utils directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.jwt_handler import generate_jwt_token, validate_jwt_token
+from utils.permission_handler import get_user_permissions
 from database_config import get_db_connection
 
 # Create Blueprint
@@ -167,6 +168,9 @@ def login():
         # Generate JWT token using jwt_handler
         token = generate_jwt_token(user_id, db_email, db_role)
 
+        # Get user permissions
+        permissions = get_user_permissions(db_role)
+
         return jsonify({
             'message': 'Login successful',
             'token': token,
@@ -174,7 +178,8 @@ def login():
                 'id': user_id,
                 'email': db_email,
                 'role': db_role
-            }
+            },
+            'permissions': permissions
         }), 200
 
     except Exception as e:
