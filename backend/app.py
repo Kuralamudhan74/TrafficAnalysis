@@ -35,6 +35,10 @@ from routes.permissions import permissions_bp
 from routes.feedback import feedback_bp
 from routes.backups import backups_bp
 
+# Phase 5 feature routes (Government)
+from routes.roadwork import roadwork_bp
+from routes.emas import emas_bp
+
 from database_config import db
 
 # Load environment variables from .env file
@@ -76,6 +80,10 @@ def create_app():
     app.register_blueprint(permissions_bp, url_prefix='/api/permissions')
     app.register_blueprint(feedback_bp, url_prefix='/api/feedback')
     app.register_blueprint(backups_bp, url_prefix='/api/backups')
+
+    # Phase 5 feature blueprints (Government)
+    app.register_blueprint(roadwork_bp, url_prefix='/api')
+    app.register_blueprint(emas_bp, url_prefix='/api')
 
 
     # Health check endpoint

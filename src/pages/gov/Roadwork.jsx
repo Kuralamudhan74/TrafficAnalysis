@@ -1,29 +1,44 @@
-import { useState } from 'react'
-import { createRoadwork } from '../../api/mockApi'
+import { useState, useEffect, useContext } from 'react'
+import { AuthContext } from '../../context/AuthContext'
+import ApiService from '../../api/apiService'
 import Card from '../../components/Card'
 import Input from '../../components/Input'
 import Select from '../../components/Select'
 import Button from '../../components/Button'
 import Badge from '../../components/Badge'
+import LoadingSpinner from '../../components/LoadingSpinner'
 import { toast, ToastContainer } from '../../components/Toast'
 
 const GovRoadwork = () => {
+  const { token } = useContext(AuthContext)
   const [formData, setFormData] = useState({
     location: '',
     startTime: new Date().toISOString().slice(0, 16),
     endTime: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
     emasIncident: false,
   })
-  const [activeEvents, setActiveEvents] = useState([
-    {
-      id: 1,
-      location: 'Orchard Road',
-      startTime: '2024-01-15T08:00',
-      endTime: '2024-01-15T18:00',
-      emas: true,
-    },
-  ])
+  const [activeEvents, setActiveEvents] = useState([])
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    loadRoadworkEvents()
+  }, [])
+
+  const loadRoadworkEvents = async () => {
+    if (!token) return
+    setLoading(true)
+    try {
+      const response = await ApiService.getRoadworkEvents(token, 'active')
+      if (response.success) {
+        setActiveEvents(response.data || [])
+      }
+    } catch (error) {
+      console.error('Failed to load roadwork events:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -34,25 +49,36 @@ const GovRoadwork = () => {
 
     setSubmitting(true)
     try {
-      await createRoadwork(formData)
-      setActiveEvents([
-        ...activeEvents,
-        {
-          id: activeEvents.length + 1,
-          ...formData,
-        },
-      ])
-      toast.success('Roadwork event created successfully')
-      setFormData({
-        location: '',
-        startTime: new Date().toISOString().slice(0, 16),
-        endTime: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
-        emasIncident: false,
-      })
+      const response = await ApiService.createRoadworkEvent(formData, token)
+      if (response.success) {
+        toast.success('Roadwork event created successfully')
+        setFormData({
+          location: '',
+          startTime: new Date().toISOString().slice(0, 16),
+          endTime: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
+          emasIncident: false,
+        })
+        loadRoadworkEvents()
+      } else {
+        toast.error(response.message || 'Failed to create roadwork event')
+      }
     } catch (error) {
-      toast.error('Failed to create roadwork event')
+      toast.error(error.message || 'Failed to create roadwork event')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (eventId) => {
+    if (!confirm('Are you sure you want to delete this event?')) return
+    try {
+      const response = await ApiService.deleteRoadworkEvent(eventId, token)
+      if (response.success) {
+        toast.success('Event deleted')
+        loadRoadworkEvents()
+      }
+    } catch (error) {
+      toast.error('Failed to delete event')
     }
   }
 
@@ -117,24 +143,38 @@ const GovRoadwork = () => {
         <div>
           <Card>
             <h3 className="text-lg font-semibold mb-4">Active Road Events</h3>
-            <div className="space-y-3">
-              {activeEvents.length === 0 ? (
-                <p className="text-sm text-gray-500">No active events</p>
-              ) : (
-                activeEvents.map((event) => (
-                  <div key={event.id} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-start justify-between mb-2">
-                      <p className="font-medium text-gray-900">{event.location}</p>
-                      {event.emas && <Badge variant="danger">EMAS</Badge>}
+            {loading ? (
+              <div className="flex justify-center py-4">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeEvents.length === 0 ? (
+                  <p className="text-sm text-gray-500">No active events</p>
+                ) : (
+                  activeEvents.map((event) => (
+                    <div key={event.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start justify-between mb-2">
+                        <p className="font-medium text-gray-900">{event.location}</p>
+                        <div className="flex items-center gap-2">
+                          {event.emas && <Badge variant="danger">EMAS</Badge>}
+                          <button
+                            onClick={() => handleDelete(event.id)}
+                            className="text-red-500 hover:text-red-700 text-xs"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        {event.startTime ? new Date(event.startTime).toLocaleString() : '-'} -{' '}
+                        {event.endTime ? new Date(event.endTime).toLocaleString() : '-'}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-600">
-                      {new Date(event.startTime).toLocaleString()} -{' '}
-                      {new Date(event.endTime).toLocaleString()}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
+            )}
           </Card>
         </div>
       </div>

@@ -1319,6 +1319,80 @@ class ApiService {
       method: 'POST'
     })
   }
+
+  // ========== Roadwork API (Phase 5 - Government) ==========
+
+  /**
+   * Get all roadwork events
+   */
+  static async getRoadworkEvents(token, status = 'all') {
+    const params = status !== 'all' ? `?status=${status}` : ''
+    return this.authenticatedRequest(`/roadwork${params}`, token, { method: 'GET' })
+  }
+
+  /**
+   * Create a new roadwork event
+   */
+  static async createRoadworkEvent(eventData, token) {
+    return this.authenticatedRequest('/roadwork', token, {
+      method: 'POST',
+      body: JSON.stringify(eventData)
+    })
+  }
+
+  /**
+   * Update a roadwork event
+   */
+  static async updateRoadworkEvent(eventId, eventData, token) {
+    return this.authenticatedRequest(`/roadwork/${eventId}`, token, {
+      method: 'PUT',
+      body: JSON.stringify(eventData)
+    })
+  }
+
+  /**
+   * Delete a roadwork event
+   */
+  static async deleteRoadworkEvent(eventId, token) {
+    return this.authenticatedRequest(`/roadwork/${eventId}`, token, { method: 'DELETE' })
+  }
+
+  // ========== EMAS API (Phase 5 - Government) ==========
+
+  /**
+   * Get all EMAS incidents
+   */
+  static async getEmasIncidents(token, status = 'all') {
+    const params = status !== 'all' ? `?status=${status}` : ''
+    return this.authenticatedRequest(`/emas/incidents${params}`, token, { method: 'GET' })
+  }
+
+  /**
+   * Create a new EMAS incident
+   */
+  static async createEmasIncident(incidentData, token) {
+    return this.authenticatedRequest('/emas/incidents', token, {
+      method: 'POST',
+      body: JSON.stringify(incidentData)
+    })
+  }
+
+  /**
+   * Update EMAS incident status
+   */
+  static async updateEmasStatus(incidentId, status, token) {
+    return this.authenticatedRequest(`/emas/incidents/${incidentId}/status`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
+    })
+  }
+
+  /**
+   * Delete an EMAS incident
+   */
+  static async deleteEmasIncident(incidentId, token) {
+    return this.authenticatedRequest(`/emas/incidents/${incidentId}`, token, { method: 'DELETE' })
+  }
 }
 
 export default ApiService
