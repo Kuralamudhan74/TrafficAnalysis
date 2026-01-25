@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Card from '../../components/Card'
-import { MapContainer, TileLayer, CircleMarker, Popup, Polyline } from 'react-leaflet'
+import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import ApiService from '../../api/apiService'
 import LoadingSpinner from '../../components/LoadingSpinner'
@@ -31,38 +31,81 @@ const lineNames = {
   'TE': 'Thomson-East Coast Line'
 }
 
-function MrtStationMarkers({ stations, selectedLine }) {
-  const filteredStations = selectedLine === 'All'
-    ? stations
-    : stations.filter(s => s.line === selectedLine)
+function MrtLineRoutes({ stations, selectedLine }) {
+  // Group stations by line
+  const stationsByLine = {}
+  stations.forEach(station => {
+    if (!stationsByLine[station.line]) {
+      stationsByLine[station.line] = []
+    }
+    stationsByLine[station.line].push(station)
+  })
+
+  // Sort stations by code within each line for proper ordering
+  Object.keys(stationsByLine).forEach(line => {
+    stationsByLine[line].sort((a, b) => a.code.localeCompare(b.code))
+  })
+
+  const linesToShow = selectedLine === 'All'
+    ? Object.keys(stationsByLine)
+    : [selectedLine]
 
   return (
     <>
-      {filteredStations.map((station, index) => (
-        <CircleMarker
-          key={`${station.code}-${index}`}
-          center={[station.latitude, station.longitude]}
-          radius={6}
-          fillColor={station.color || lineColors[station.line] || '#000'}
-          color="#fff"
-          weight={2}
-          opacity={1}
-          fillOpacity={0.9}
-        >
-          <Popup>
-            <div className="text-center">
-              <div className="font-bold">{station.name}</div>
-              <div className="text-sm text-gray-600">{station.code}</div>
-              <Badge
-                variant="info"
-                style={{ backgroundColor: station.color, color: '#fff' }}
-              >
-                {lineNames[station.line] || station.line}
-              </Badge>
-            </div>
-          </Popup>
-        </CircleMarker>
-      ))}
+      {linesToShow.map(line => {
+        const lineStations = stationsByLine[line] || []
+        if (lineStations.length < 2) return null
+
+        const positions = lineStations.map(s => [s.latitude, s.longitude])
+        const color = lineColors[line] || '#000'
+
+        return (
+          <Polyline
+            key={`line-${line}`}
+            positions={positions}
+            pathOptions={{
+              color: color,
+              weight: 4,
+              opacity: 0.6
+            }}
+          />
+        )
+      })}
+
+      {/* Show small station markers on the routes */}
+      {stations
+        .filter(s => selectedLine === 'All' || s.line === selectedLine)
+        .map((station, index) => (
+          <CircleMarker
+            key={`${station.code}-${index}`}
+            center={[station.latitude, station.longitude]}
+            radius={6}
+            fillColor={station.color || lineColors[station.line] || '#000'}
+            color="#fff"
+            weight={2}
+            opacity={1}
+            fillOpacity={0.9}
+          >
+            <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+              <div className="text-center p-1">
+                <div className="font-bold text-sm">{station.name}</div>
+                <div className="text-xs text-gray-600">{station.code}</div>
+              </div>
+            </Tooltip>
+            <Popup>
+              <div className="text-center min-w-[150px]">
+                <div className="font-bold text-lg">{station.name}</div>
+                <div className="text-sm text-gray-600 mb-2">{station.code}</div>
+                <Badge
+                  variant="info"
+                  style={{ backgroundColor: station.color || lineColors[station.line], color: '#fff' }}
+                >
+                  {lineNames[station.line] || station.line}
+                </Badge>
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
     </>
   )
 }
@@ -76,18 +119,26 @@ function BusStopMarkers({ busStops }) {
         <CircleMarker
           key={`bus-${stop.bus_stop_code}-${index}`}
           center={[stop.latitude, stop.longitude]}
-          radius={4}
+          radius={5}
           fillColor="#22c55e"
           color="#16a34a"
-          weight={1}
-          opacity={0.8}
-          fillOpacity={0.6}
+          weight={1.5}
+          opacity={0.9}
+          fillOpacity={0.7}
         >
+          <Tooltip direction="top" offset={[0, -5]} opacity={0.95}>
+            <div className="text-center p-1">
+              <div className="font-bold text-sm">{stop.description}</div>
+              <div className="text-xs">{stop.bus_stop_code}</div>
+            </div>
+          </Tooltip>
           <Popup>
-            <div>
-              <div className="font-bold">{stop.description}</div>
-              <div className="text-sm text-gray-600">{stop.road_name}</div>
-              <div className="text-xs">Stop Code: {stop.bus_stop_code}</div>
+            <div className="min-w-[150px]">
+              <div className="font-bold text-lg">{stop.description}</div>
+              <div className="text-sm text-gray-600 mb-1">{stop.road_name}</div>
+              <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded inline-block">
+                Stop Code: {stop.bus_stop_code}
+              </div>
             </div>
           </Popup>
         </CircleMarker>
@@ -266,7 +317,7 @@ const GovTransport = () => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
-              <MrtStationMarkers stations={stations} selectedLine={selectedLine} />
+              <MrtLineRoutes stations={stations} selectedLine={selectedLine} />
               {showBusStops && <BusStopMarkers busStops={busStops} />}
             </MapContainer>
 

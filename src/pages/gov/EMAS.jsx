@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
-import { getIncidents, updateIncidentStatus } from '../../api/mockApi'
+import { useState, useEffect, useContext } from 'react'
+import { AuthContext } from '../../context/AuthContext'
+import ApiService from '../../api/apiService'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import Card from '../../components/Card'
 import Table from '../../components/Table'
@@ -8,6 +9,7 @@ import Badge from '../../components/Badge'
 import { toast, ToastContainer } from '../../components/Toast'
 
 const GovEMAS = () => {
+  const { token } = useContext(AuthContext)
   const [incidents, setIncidents] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -16,21 +18,33 @@ const GovEMAS = () => {
   }, [])
 
   const loadIncidents = async () => {
+    if (!token) return
     setLoading(true)
-    const data = await getIncidents()
-    setIncidents(data)
-    setLoading(false)
+    try {
+      const response = await ApiService.getEmasIncidents(token)
+      if (response.success) {
+        setIncidents(response.data || [])
+      }
+    } catch (error) {
+      console.error('Failed to load EMAS incidents:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleMarkCleared = async (incidentId) => {
     try {
-      await updateIncidentStatus(incidentId, 'Cleared')
-      setIncidents(
-        incidents.map((inc) =>
-          inc.id === incidentId ? { ...inc, status: 'Cleared' } : inc
+      const response = await ApiService.updateEmasStatus(incidentId, 'Cleared', token)
+      if (response.success) {
+        setIncidents(
+          incidents.map((inc) =>
+            inc.id === incidentId ? { ...inc, status: 'Cleared' } : inc
+          )
         )
-      )
-      toast.success('Incident marked as cleared')
+        toast.success('Incident marked as cleared')
+      } else {
+        toast.error(response.message || 'Failed to update status')
+      }
     } catch (error) {
       toast.error('Failed to update incident status')
     }

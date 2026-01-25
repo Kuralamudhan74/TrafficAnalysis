@@ -93,17 +93,18 @@ const DashboardLayout = () => {
       case 'government':
         return [
           { path: '/gov/dashboard', label: 'Dashboard', icon: FiBarChart2 },
-          { path: '/gov/heatmap', label: 'Congestion Heatmap', icon: FiMap },
+          // { path: '/gov/heatmap', label: 'Congestion Heatmap', icon: FiMap }, // Hidden per user request
           { path: '/gov/roadwork', label: 'Input Roadwork Event', icon: FiCalendar },
           { path: '/gov/emas', label: 'EMAS Incident Status', icon: FiAlertCircle },
-          { path: '/gov/reports', label: 'Time-based Reports', icon: FiFileText },
+          // { path: '/gov/reports', label: 'Time-based Reports', icon: FiFileText }, // Hidden - not working
           { path: '/gov/data-upload', label: 'Upload & Analyze', icon: FiDatabase },
           { path: '/gov/bottlenecks', label: 'Bottleneck Finder', icon: FiAlertCircle },
-          { path: '/gov/jam-prediction', label: 'Jam Spread Prediction', icon: FiTrendingUp },
-          { path: '/gov/simulation', label: 'Event Simulation', icon: FiZap },
+          // { path: '/gov/jam-prediction', label: 'Jam Spread Prediction', icon: FiTrendingUp }, // Hidden - has errors
+          { path: '/gov/trends', label: 'View Historical Trends', icon: FiBarChart2 },
+          // { path: '/gov/simulation', label: 'Event Simulation', icon: FiZap }, // Hidden - not working
           { path: '/gov/weather', label: 'Weather Overlay', icon: FiCloud },
           { path: '/gov/transport', label: 'Public Transport Overlay', icon: FiNavigation },
-          { path: '/gov/alerts', label: 'Critical Alerts', icon: FiAlertCircle },
+          // { path: '/gov/alerts', label: 'Critical Alerts', icon: FiAlertCircle }, // Hidden per user request
           { path: '/gov/manage-users', label: 'Manage User Accounts', icon: FiUsers },
         ]
       case 'developer':
@@ -133,13 +134,14 @@ const DashboardLayout = () => {
 
   const menuItems = getMenuItems()
   const isPublicUser = user?.role === 'public' || user?.role === 'guest'
+  const isGovernmentUser = user?.role === 'government'
 
-  // For public users, use top navigation like Map page
-  if (isPublicUser) {
+  // For public and government users, use top navigation
+  if (isPublicUser || isGovernmentUser) {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Top Navigation Bar */}
-        <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-[9999] relative" style={{ position: 'sticky', zIndex: 9999 }}>
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               {/* Logo and Menu Items */}
@@ -180,7 +182,11 @@ const DashboardLayout = () => {
                       
                       {moreDropdownOpen && (
                         <>
-                          <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                          <div
+                            className="fixed inset-0 z-[110]"
+                            onClick={() => setMoreDropdownOpen(false)}
+                          />
+                          <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[120]">
                             {menuItems.slice(4).map((item) => {
                               const Icon = item.icon
                               const isActive = location.pathname === item.path
@@ -201,10 +207,6 @@ const DashboardLayout = () => {
                               )
                             })}
                           </div>
-                          <div 
-                            className="fixed inset-0 z-40"
-                            onClick={() => setMoreDropdownOpen(false)}
-                          />
                         </>
                       )}
                     </div>
