@@ -15,6 +15,8 @@ import shutil
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from database_config import get_db_connection
 from utils.jwt_handler import validate_jwt_token
+from utils.permission_handler import permission_required
+from utils.permission_handler import permission_required
 
 backups_bp = Blueprint('backups', __name__)
 
@@ -130,15 +132,22 @@ def run_pg_dump(output_file, tables=None, compress=True):
                         f.write(f"-- Table {table} does not exist, skipping\n\n")
                         continue
 
-                    # Get column info
+                    # Get column info (explicitly from public schema to avoid conflicts with auth schema)
                     cursor.execute("""
                         SELECT column_name, data_type
                         FROM information_schema.columns
-                        WHERE table_name = %s
+                        WHERE table_schema = 'public' AND table_name = %s
                         ORDER BY ordinal_position
                     """, (table,))
                     columns = cursor.fetchall()
                     col_names = [c[0] for c in columns]
+                    
+                    # Check for duplicate column names
+                    if len(col_names) != len(set(col_names)):
+                        duplicates = [name for name in set(col_names) if col_names.count(name) > 1]
+                        f.write(f"-- Table: {table} - SKIPPED (contains duplicate columns: {', '.join(duplicates)})\n")
+                        f.write(f"-- Note: This table has a schema issue that needs to be fixed before backup\n\n")
+                        continue
 
                     # Get row count
                     cursor.execute(f"SELECT COUNT(*) FROM {table}")
@@ -194,56 +203,119 @@ def run_pg_dump(output_file, tables=None, compress=True):
 
 
 def run_pg_restore(backup_file):
-    """Run psql to restore from SQL file"""
-    config = get_db_config()
-
-    env = os.environ.copy()
-    env['PGPASSWORD'] = config['password']
-
-    # Decompress if needed
-    actual_file = backup_file
-    if backup_file.endswith('.gz'):
-        actual_file = backup_file[:-3]
-        with gzip.open(backup_file, 'rb') as f_in:
-            with open(actual_file, 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
-
-    cmd = [
-        'psql',
-        '-h', config['host'],
-        '-p', config['port'],
-        '-U', config['user'],
-        '-d', config['database'],
-        '-f', actual_file
-    ]
-
+    """Restore database from SQL backup file using Python"""
     try:
-        result = subprocess.run(
-            cmd,
-            env=env,
-            capture_output=True,
-            timeout=600  # 10 minute timeout
-        )
+        # Decompress if needed
+        actual_file = backup_file
+        temp_file = None
+        
+        if backup_file.endswith('.gz'):
+            actual_file = backup_file[:-3]
+            temp_file = actual_file
+            with gzip.open(backup_file, 'rb') as f_in:
+                with open(actual_file, 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
 
-        # Clean up decompressed file
-        if actual_file != backup_file and os.path.exists(actual_file):
-            os.remove(actual_file)
+        # Read SQL file
+        with open(actual_file, 'r', encoding='utf-8') as f:
+            sql_content = f.read()
 
-        if result.returncode != 0:
-            error_msg = result.stderr.decode() if result.stderr else 'Unknown error'
-            return False, error_msg
+        # Clean up temp file if created
+        if temp_file and os.path.exists(temp_file):
+            os.remove(temp_file)
 
-        return True, 'Restore completed successfully'
+        # Parse backup to find table names
+        import re
+        table_pattern = r'-- Table: (\w+) \(\d+ rows\)'
+        tables_in_backup = re.findall(table_pattern, sql_content)
+        
+        # Exclude backups table from restore to avoid deleting backup records
+        tables_to_restore = [t for t in tables_in_backup if t != 'backups']
+        
+        # First, truncate tables in a separate transaction
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        for table in tables_to_restore:
+            try:
+                cursor.execute(f"TRUNCATE TABLE {table} CASCADE;")
+                print(f"Truncated table: {table}")
+            except Exception as truncate_error:
+                print(f"Warning: Could not truncate {table}: {truncate_error}")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
 
-    except subprocess.TimeoutExpired:
-        return False, 'Restore timed out'
+        # Now restore data with a fresh connection in autocommit mode
+        conn = get_db_connection()
+        # Commit any pending transaction before setting autocommit
+        conn.commit()
+        conn.autocommit = True
+        cursor = conn.cursor()
+
+        # Split into individual INSERT statements and execute
+        statements = sql_content.split('\n')
+        current_statement = []
+        success_count = 0
+        error_count = 0
+        skip_backups_table = False
+        
+        for line in statements:
+            # Check if we're in backups table section
+            if '-- Table: backups' in line:
+                skip_backups_table = True
+                print("Skipping backups table to preserve backup records")
+                continue
+            
+            # Reset skip flag when we hit another table
+            if line.startswith('-- Table:') and 'backups' not in line:
+                skip_backups_table = False
+            
+            # Skip comments and empty lines
+            if line.strip().startswith('--') or not line.strip():
+                continue
+            
+            # Skip if we're in backups table section
+            if skip_backups_table:
+                continue
+            
+            current_statement.append(line)
+            
+            # Execute when we hit a semicolon
+            if line.strip().endswith(';'):
+                stmt = '\n'.join(current_statement)
+                try:
+                    cursor.execute(stmt)
+                    success_count += 1
+                except Exception as stmt_error:
+                    error_count += 1
+                    if error_count <= 5:  # Only print first 5 errors
+                        print(f"Error executing statement: {stmt_error}")
+                        print(f"Statement: {stmt[:200]}...")
+                
+                current_statement = []
+        
+        cursor.close()
+        conn.close()
+
+        print(f"Restore completed: {success_count} statements succeeded, {error_count} statements failed")
+        
+        if error_count > 0 and success_count == 0:
+            return False, f'Restore failed: all {error_count} statements failed'
+        
+        return True, f'Restore completed: {success_count} statements executed successfully'
+
     except Exception as e:
+        print(f"Error in run_pg_restore: {e}")
+        import traceback
+        traceback.print_exc()
         return False, str(e)
 
 
 @backups_bp.route('/', methods=['GET'])
-@developer_required
-def list_backups():
+@permission_required('view_backups')
+def list_backups(current_user):
     """List all backups"""
     try:
         conn = get_db_connection()
@@ -289,23 +361,24 @@ def list_backups():
 
 
 @backups_bp.route('/', methods=['POST'])
-@developer_required
-def create_backup():
+@permission_required('create_backup')
+def create_backup(current_user):
     """Create a new backup"""
     try:
         data = request.get_json() if request.is_json else {}
-        user = request.current_user
+        user = current_user
 
         backup_type = data.get('type', 'full')  # full, partial
-        tables = data.get('tables', BACKUP_TABLES if backup_type == 'full' else [])
+        tables = data.get('tables', get_all_tables() if backup_type == 'full' else [])
         notes = data.get('notes', '')
         compress = data.get('compress', True)
 
         if backup_type == 'partial' and not tables:
             return jsonify({'error': 'Tables must be specified for partial backup'}), 400
 
-        # Generate filename
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        # Generate filename with local system time
+        local_time = datetime.now()
+        timestamp = local_time.strftime('%Y%m%d_%H%M%S')
         filename = f"backup_{backup_type}_{timestamp}.sql"
         output_file = os.path.join(BACKUP_DIR, filename)
 
@@ -357,7 +430,7 @@ def create_backup():
                 'filename': final_filename,
                 'file_size': file_size,
                 'file_size_mb': round(file_size / (1024 * 1024), 2),
-                'created_at': result[1].isoformat()
+                'created_at': local_time.isoformat()
             }
         }), 201
 
@@ -369,8 +442,8 @@ def create_backup():
 
 
 @backups_bp.route('/<int:backup_id>', methods=['GET'])
-@developer_required
-def get_backup(backup_id):
+@permission_required('view_backups')
+def get_backup(backup_id, current_user):
     """Get backup details"""
     try:
         conn = get_db_connection()
@@ -409,8 +482,8 @@ def get_backup(backup_id):
 
 
 @backups_bp.route('/<int:backup_id>/download', methods=['GET'])
-@developer_required
-def download_backup(backup_id):
+@permission_required('download_backup')
+def download_backup(backup_id, current_user):
     """Download a backup file"""
     try:
         conn = get_db_connection()
@@ -441,8 +514,8 @@ def download_backup(backup_id):
 
 
 @backups_bp.route('/<int:backup_id>/restore', methods=['POST'])
-@developer_required
-def restore_backup(backup_id):
+@permission_required('restore_backup')
+def restore_backup(backup_id, current_user):
     """Restore from a backup"""
     try:
         data = request.get_json() if request.is_json else {}
@@ -457,12 +530,13 @@ def restore_backup(backup_id):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT filename, file_path FROM backups WHERE id = %s", (backup_id,))
+        cursor.execute("SELECT filename, file_path FROM backups WHERE id = %s AND is_deleted = FALSE", (backup_id,))
         row = cursor.fetchone()
 
         if not row:
             cursor.close()
             conn.close()
+            print(f"Backup not found for ID: {backup_id}")
             return jsonify({'error': 'Backup not found'}), 404
 
         filename, file_path = row
@@ -500,8 +574,8 @@ def restore_backup(backup_id):
 
 
 @backups_bp.route('/<int:backup_id>', methods=['DELETE'])
-@developer_required
-def delete_backup(backup_id):
+@permission_required('delete_backup')
+def delete_backup(backup_id, current_user):
     """Delete a backup (soft delete)"""
     try:
         data = request.get_json() if request.is_json else {}
@@ -546,8 +620,8 @@ def delete_backup(backup_id):
 
 
 @backups_bp.route('/stats', methods=['GET'])
-@developer_required
-def get_backup_stats():
+@permission_required('view_backups')
+def get_backup_stats(current_user):
     """Get backup statistics"""
     try:
         conn = get_db_connection()

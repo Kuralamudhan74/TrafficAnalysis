@@ -14,11 +14,16 @@ const DevBackup = () => {
   const [backups, setBackups] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [stats, setStats] = useState(null)
   const [tables, setTables] = useState([])
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [restoreModalOpen, setRestoreModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [selectedBackup, setSelectedBackup] = useState(null)
+  const [backupToDelete, setBackupToDelete] = useState(null)
+  const [hardDelete, setHardDelete] = useState(false)
   const [formData, setFormData] = useState({
     type: 'full',
     tables: [],
@@ -99,41 +104,52 @@ const DevBackup = () => {
   const handleRestore = async () => {
     if (!selectedBackup) return
 
+    setRestoring(true)
     try {
       const token = localStorage.getItem('auth_token')
       const res = await ApiService.restoreBackup(selectedBackup.id, token)
 
       if (res.success) {
-        toast.success('Database restored successfully')
+        toast.success('Restoration successful: Database restored successfully')
         setRestoreModalOpen(false)
         setSelectedBackup(null)
+        loadData() // Reload backup list
       } else {
-        toast.error(res.error || 'Failed to restore backup')
+        toast.error('Restoration failed: ' + (res.error || 'Failed to restore backup'))
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to restore backup')
+      toast.error('Restoration failed: ' + (err.message || 'Failed to restore backup'))
+    } finally {
+      setRestoring(false)
     }
   }
 
-  const handleDelete = async (backupId, hardDelete = false) => {
-    const confirmMsg = hardDelete
-      ? 'This will permanently delete the backup file. Are you sure?'
-      : 'Are you sure you want to delete this backup?'
+  const openDeleteModal = (backup, isHardDelete = false) => {
+    setBackupToDelete(backup)
+    setHardDelete(isHardDelete)
+    setDeleteModalOpen(true)
+  }
 
-    if (!confirm(confirmMsg)) return
+  const handleDelete = async () => {
+    if (!backupToDelete) return
 
+    setDeleting(true)
     try {
       const token = localStorage.getItem('auth_token')
-      const res = await ApiService.deleteBackup(backupId, hardDelete, token)
+      const res = await ApiService.deleteBackup(backupToDelete.id, hardDelete, token)
 
       if (res.success) {
         toast.success(res.message)
         loadData()
+        setDeleteModalOpen(false)
+        setBackupToDelete(null)
       } else {
         toast.error(res.error || 'Failed to delete backup')
       }
     } catch (err) {
       toast.error(err.message || 'Failed to delete backup')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -219,7 +235,7 @@ const DevBackup = () => {
           <Button
             size="sm"
             variant="danger"
-            onClick={() => handleDelete(row.id, true)}
+            onClick={() => openDeleteModal(row, true)}
             title="Delete"
           >
             <FiTrash2 className="w-4 h-4" />
@@ -400,11 +416,68 @@ const DevBackup = () => {
           )}
 
           <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={() => setRestoreModalOpen(false)}>
+            <Button 
+              variant="secondary" 
+              onClick={() => setRestoreModalOpen(false)}
+              disabled={restoring}
+            >
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleRestore}>
-              Restore Database
+            <Button 
+              variant="danger" 
+              onClick={handleRestore}
+              disabled={restoring}
+            >
+              {restoring ? 'Restoring...' : 'Restore Database'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Backup"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-red-50 border border-red-200 rounded">
+            <p className="text-red-800 font-semibold">Warning</p>
+            <p className="text-red-700 text-sm mt-1">
+              {hardDelete
+                ? 'This will permanently delete the backup file from disk. This action cannot be undone.'
+                : 'This will mark the backup as deleted. You can recover it later if needed.'}
+            </p>
+          </div>
+
+          {backupToDelete && (
+            <div className="p-3 bg-gray-50 rounded">
+              <div className="text-sm">
+                <strong>Backup:</strong> {backupToDelete.filename}
+              </div>
+              <div className="text-sm text-gray-600">
+                <strong>Size:</strong> {formatSize(backupToDelete.file_size)}
+              </div>
+              <div className="text-sm text-gray-600">
+                <strong>Created:</strong> {formatDate(backupToDelete.created_at)}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2">
+            <Button 
+              variant="secondary" 
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="danger" 
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : (hardDelete ? 'Delete Permanently' : 'Delete')}
             </Button>
           </div>
         </div>

@@ -12,6 +12,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from database_config import get_db_connection
 from utils.jwt_handler import validate_jwt_token
+from utils.permission_handler import permission_required
 
 feedback_bp = Blueprint('feedback', __name__)
 
@@ -67,8 +68,8 @@ def admin_required(f):
 
 
 @feedback_bp.route('/', methods=['GET'])
-@admin_required
-def list_feedback():
+@permission_required('view_all_feedback')
+def list_feedback(current_user):
     """List all feedback with filtering (admin only)"""
     try:
         # Pagination
@@ -202,9 +203,9 @@ def get_feedback(feedback_id):
 
 
 @feedback_bp.route('/', methods=['POST'])
-@token_optional
-def submit_feedback():
-    """Submit new feedback (authenticated or anonymous)"""
+@permission_required('submit_feedback')
+def submit_feedback(current_user):
+    """Submit new feedback (authenticated users only)"""
     try:
         if not request.is_json:
             return jsonify({'error': 'Content-Type must be application/json'}), 400
@@ -224,7 +225,7 @@ def submit_feedback():
         if rating and (rating < 1 or rating > 5):
             rating = None
 
-        user = request.current_user
+        user = current_user
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -235,8 +236,8 @@ def submit_feedback():
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id, created_at
         """, (
-            user.get('id') if user else None,
-            user.get('email') if user else data.get('email'),
+            user.get('id'),
+            user.get('email'),
             data.get('name'),
             category,
             subject,
@@ -264,8 +265,8 @@ def submit_feedback():
 
 
 @feedback_bp.route('/<int:feedback_id>/respond', methods=['PUT'])
-@admin_required
-def respond_to_feedback(feedback_id):
+@permission_required('manage_feedback')
+def respond_feedback(feedback_id, current_user):
     """Respond to a feedback entry"""
     try:
         if not request.is_json:
@@ -277,7 +278,7 @@ def respond_to_feedback(feedback_id):
         if not response:
             return jsonify({'error': 'Response message is required'}), 400
 
-        user = request.current_user
+        user = current_user
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -311,8 +312,8 @@ def respond_to_feedback(feedback_id):
 
 
 @feedback_bp.route('/<int:feedback_id>/status', methods=['PUT'])
-@admin_required
-def update_feedback_status(feedback_id):
+@permission_required('manage_feedback')
+def update_feedback_status(feedback_id, current_user):
     """Update feedback status"""
     try:
         if not request.is_json:
@@ -593,14 +594,11 @@ def get_statuses():
 
 
 @feedback_bp.route('/my-feedback', methods=['GET'])
-@token_optional
-def get_my_feedback():
+@permission_required('view_own_feedback')
+def get_my_feedback(current_user):
     """Get current user's feedback submissions with responses"""
     try:
-        user = request.current_user
-        
-        if not user:
-            return jsonify({'error': 'Authentication required'}), 401
+        user = current_user
         
         conn = get_db_connection()
         cursor = conn.cursor()

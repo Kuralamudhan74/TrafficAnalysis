@@ -22,13 +22,18 @@ class DatabaseConfig:
 
     def get_db_connection(self):
         """Returns a fresh psycopg connection."""
-        return psycopg.connect(
+        conn = psycopg.connect(
             host=self.host,
             port=self.port,
             dbname=self.dbname,
             user=self.user,
             password=self.password
         )
+        # Set timezone to local system timezone
+        cursor = conn.cursor()
+        cursor.execute("SET timezone = 'Asia/Singapore'")
+        cursor.close()
+        return conn
 
     def init_db(self):
         """Attempts to connect once to verify DB is reachable."""

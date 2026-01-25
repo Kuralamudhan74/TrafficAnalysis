@@ -8,6 +8,7 @@ import psycopg2
 import pytz
 from database_config import get_db_connection
 from utils.jwt_handler import token_required
+from utils.permission_handler import permission_required
 
 incidents_bp = Blueprint('incidents', __name__)
 
@@ -86,7 +87,7 @@ def user_exists(user_id):
         conn.close()
 
 @incidents_bp.route('/incidents', methods=['POST'])
-@token_required()
+@permission_required('report_incident')
 def create_incident(current_user):
     """Create a new incident report"""
     try:

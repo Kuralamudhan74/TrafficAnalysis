@@ -215,7 +215,78 @@ const AppRouter = () => {
         <Route path="jam-prediction" element={<JamPrediction />} />
       </Route>
 
-      {/* Developer routes */}
+      {/* Developer routes with MapLayout (top nav only, no sidebar) */}
+      <Route
+        path="/dev/algorithms"
+        element={
+          <ProtectedRoute allowedRoles={['developer']}>
+            <MapLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DevAlgorithms />} />
+      </Route>
+
+      {/* Performance route - kept for future use
+      <Route
+        path="/dev/performance"
+        element={
+          <ProtectedRoute allowedRoles={['developer']}>
+            <MapLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DevPerformance />} />
+      </Route>
+      */}
+
+      {/* Logs route - kept for future use
+      <Route
+        path="/dev/logs"
+        element={
+          <ProtectedRoute allowedRoles={['developer']}>
+            <MapLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DevLogs />} />
+      </Route>
+      */}
+
+      <Route
+        path="/dev/backup"
+        element={
+          <ProtectedRoute allowedRoles={['developer']}>
+            <MapLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DevBackup />} />
+      </Route>
+
+      <Route
+        path="/dev/access-roles"
+        element={
+          <ProtectedRoute allowedRoles={['developer']}>
+            <MapLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DevAccessRoles />} />
+      </Route>
+
+      <Route
+        path="/dev/feedback"
+        element={
+          <ProtectedRoute allowedRoles={['developer']}>
+            <MapLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DevFeedback />} />
+      </Route>
+
+      {/* Developer routes - uses DashboardLayout with sidebar (for other pages) */}
       <Route
         path="/dev/*"
         element={
@@ -225,13 +296,7 @@ const AppRouter = () => {
         }
       >
         <Route index element={<Navigate to="algorithms" replace />} />
-        <Route path="algorithms" element={<DevAlgorithms />} />
-        <Route path="performance" element={<DevPerformance />} />
-        <Route path="access-roles" element={<DevAccessRoles />} />
-        <Route path="feedback" element={<DevFeedback />} />
-        <Route path="logs" element={<DevLogs />} />
         <Route path="visualization" element={<DevVisualization />} />
-        <Route path="backup" element={<DevBackup />} />
         <Route path="integrations" element={<DevIntegrations />} />
         <Route path="deployments" element={<DevDeployments />} />
       </Route>

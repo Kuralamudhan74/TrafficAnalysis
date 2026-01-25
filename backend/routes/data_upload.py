@@ -14,6 +14,7 @@ import sys
 # Add parent directory to path to import services
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.preprocessing_service import PreprocessingService
+from utils.permission_handler import permission_required
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,8 @@ def get_db_connection():
 
 
 @data_upload_bp.route('/create-session', methods=['POST'])
-def create_session():
+@permission_required('upload_traffic_data')
+def create_session(current_user):
     """Create a new upload session"""
     conn = None
     cursor = None
@@ -100,7 +102,8 @@ def create_session():
 
 
 @data_upload_bp.route('/road-network', methods=['POST'])
-def upload_road_network():
+@permission_required('upload_traffic_data')
+def upload_road_network(current_user):
     """Upload road network GeoJSON file"""
     conn = None
     cursor = None
@@ -183,7 +186,8 @@ def upload_road_network():
 
 
 @data_upload_bp.route('/gps-trajectories', methods=['POST'])
-def upload_gps_trajectories():
+@permission_required('upload_traffic_data')
+def upload_gps_trajectories(current_user):
     """Upload GPS trajectories CSV file"""
     conn = None
     cursor = None
