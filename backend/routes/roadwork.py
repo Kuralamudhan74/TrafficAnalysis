@@ -116,14 +116,37 @@ def create_roadwork_event(current_user):
             ))
 
             result = cursor.fetchone()
+            roadwork_id = result[0]
+            created_at = result[1]
+
+            emas_incident_id = None
+
+            # If EMAS incident checkbox is checked, create an EMAS incident
+            if data.get('emasIncident', False):
+                cursor.execute("""
+                    INSERT INTO emas_incidents (location, description, incident_type, status, roadwork_id, created_by)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    data['location'],
+                    f"Roadwork event at {data['location']}",
+                    'Roadwork',
+                    'Active',
+                    roadwork_id,
+                    current_user['id']
+                ))
+                emas_result = cursor.fetchone()
+                emas_incident_id = emas_result[0]
+
             conn.commit()
 
             return jsonify({
                 'success': True,
-                'message': 'Roadwork event created successfully',
+                'message': 'Roadwork event created successfully' + (' with EMAS incident' if emas_incident_id else ''),
                 'data': {
-                    'id': result[0],
-                    'created_at': result[1].isoformat()
+                    'id': roadwork_id,
+                    'created_at': created_at.isoformat(),
+                    'emas_incident_id': emas_incident_id
                 }
             }), 201
 

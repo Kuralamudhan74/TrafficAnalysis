@@ -3,7 +3,6 @@ import { AuthContext } from '../../context/AuthContext'
 import ApiService from '../../api/apiService'
 import Card from '../../components/Card'
 import Input from '../../components/Input'
-import Select from '../../components/Select'
 import Button from '../../components/Button'
 import Badge from '../../components/Badge'
 import LoadingSpinner from '../../components/LoadingSpinner'
@@ -90,18 +89,12 @@ const GovRoadwork = () => {
           <Card>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Input Roadwork Event</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Select
+              <Input
                 label="Location *"
+                type="text"
+                placeholder="Enter location (e.g., Orchard Road, Marina Bay)"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                options={[
-                  { value: '', label: 'Select location' },
-                  { value: 'Orchard Road', label: 'Orchard Road' },
-                  { value: 'Marina Bay', label: 'Marina Bay' },
-                  { value: 'Jurong East', label: 'Jurong East' },
-                  { value: 'Tampines Avenue', label: 'Tampines Avenue' },
-                  { value: 'Woodlands Road', label: 'Woodlands Road' },
-                ]}
               />
 
               <Input

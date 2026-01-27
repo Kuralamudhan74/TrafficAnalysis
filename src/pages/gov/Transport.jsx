@@ -9,6 +9,102 @@ import Select from '../../components/Select'
 
 const singaporeCenter = [1.3521, 103.8198]
 
+// Static traffic congestion data for major roads
+const trafficCongestionData = [
+  // Heavy congestion (red) - PIE section
+  {
+    id: 'pie-heavy-1',
+    positions: [[1.3329, 103.7720], [1.3350, 103.7850], [1.3365, 103.7980]],
+    level: 'heavy',
+    roadName: 'PIE (Tuas)'
+  },
+  // Moderate congestion (orange) - PIE section
+  {
+    id: 'pie-moderate-1',
+    positions: [[1.3365, 103.7980], [1.3380, 103.8150], [1.3395, 103.8300]],
+    level: 'moderate',
+    roadName: 'PIE (City)'
+  },
+  // Heavy congestion (red) - CTE section
+  {
+    id: 'cte-heavy-1',
+    positions: [[1.3100, 103.8398], [1.3200, 103.8398], [1.3300, 103.8395]],
+    level: 'heavy',
+    roadName: 'CTE (South)'
+  },
+  // Moderate congestion (orange) - CTE section
+  {
+    id: 'cte-moderate-1',
+    positions: [[1.3300, 103.8395], [1.3400, 103.8390], [1.3500, 103.8385]],
+    level: 'moderate',
+    roadName: 'CTE (North)'
+  },
+  // Heavy congestion (red) - ECP section
+  {
+    id: 'ecp-heavy-1',
+    positions: [[1.2980, 103.8600], [1.2985, 103.8750], [1.2990, 103.8900]],
+    level: 'heavy',
+    roadName: 'ECP (Changi)'
+  },
+  // Moderate congestion (orange) - AYE section
+  {
+    id: 'aye-moderate-1',
+    positions: [[1.2800, 103.7800], [1.2850, 103.7950], [1.2900, 103.8100]],
+    level: 'moderate',
+    roadName: 'AYE (Jurong)'
+  },
+  // Heavy congestion (red) - Orchard Road area
+  {
+    id: 'orchard-heavy-1',
+    positions: [[1.3020, 103.8310], [1.3045, 103.8370], [1.3070, 103.8430]],
+    level: 'heavy',
+    roadName: 'Orchard Road'
+  },
+  // Moderate congestion (orange) - Bukit Timah
+  {
+    id: 'bt-moderate-1',
+    positions: [[1.3250, 103.8050], [1.3350, 103.7950], [1.3450, 103.7850]],
+    level: 'moderate',
+    roadName: 'Bukit Timah Road'
+  }
+]
+
+// Traffic congestion colors
+const congestionColors = {
+  heavy: '#DC2626',    // Red
+  moderate: '#F97316'  // Orange
+}
+
+// Traffic Congestion Overlay Component
+function TrafficCongestionOverlay({ show }) {
+  if (!show) return null
+
+  return (
+    <>
+      {trafficCongestionData.map((segment) => (
+        <Polyline
+          key={segment.id}
+          positions={segment.positions}
+          pathOptions={{
+            color: congestionColors[segment.level],
+            weight: 6,
+            opacity: 0.8
+          }}
+        >
+          <Tooltip direction="top" offset={[0, -5]} opacity={0.95}>
+            <div className="text-center p-1">
+              <div className="font-bold text-sm">{segment.roadName}</div>
+              <div className={`text-xs ${segment.level === 'heavy' ? 'text-red-600' : 'text-orange-600'}`}>
+                {segment.level === 'heavy' ? 'Heavy Congestion' : 'Moderate Congestion'}
+              </div>
+            </div>
+          </Tooltip>
+        </Polyline>
+      ))}
+    </>
+  )
+}
+
 // MRT Line colors
 const lineColors = {
   'NS': '#D42E12',  // Red
@@ -156,6 +252,7 @@ const GovTransport = () => {
   const [error, setError] = useState(null)
   const [selectedLine, setSelectedLine] = useState('All')
   const [showBusStops, setShowBusStops] = useState(false)
+  const [showTrafficCongestion, setShowTrafficCongestion] = useState(true)
 
   useEffect(() => {
     loadTransportData()
@@ -244,6 +341,15 @@ const GovTransport = () => {
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
+                checked={showTrafficCongestion}
+                onChange={(e) => setShowTrafficCongestion(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm">Traffic Congestion</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
                 checked={showBusStops}
                 onChange={(e) => setShowBusStops(e.target.checked)}
                 className="rounded"
@@ -317,11 +423,12 @@ const GovTransport = () => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
+              <TrafficCongestionOverlay show={showTrafficCongestion} />
               <MrtLineRoutes stations={stations} selectedLine={selectedLine} />
               {showBusStops && <BusStopMarkers busStops={busStops} />}
             </MapContainer>
 
-            <div className="mt-4 flex items-center space-x-4 text-sm">
+            <div className="mt-4 flex items-center space-x-4 text-sm flex-wrap gap-2">
               <span className="flex items-center">
                 <span className="w-3 h-3 rounded-full bg-blue-500 mr-1 border-2 border-white"></span>
                 MRT Station
@@ -331,6 +438,18 @@ const GovTransport = () => {
                   <span className="w-3 h-3 rounded-full bg-green-500 mr-1"></span>
                   Bus Stop
                 </span>
+              )}
+              {showTrafficCongestion && (
+                <>
+                  <span className="flex items-center">
+                    <span className="w-6 h-1 bg-red-600 mr-1 rounded"></span>
+                    Heavy Congestion
+                  </span>
+                  <span className="flex items-center">
+                    <span className="w-6 h-1 bg-orange-500 mr-1 rounded"></span>
+                    Moderate Congestion
+                  </span>
+                </>
               )}
             </div>
           </>

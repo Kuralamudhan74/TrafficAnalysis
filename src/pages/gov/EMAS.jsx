@@ -60,6 +60,16 @@ const GovEMAS = () => {
       label: 'Location',
     },
     {
+      key: 'type',
+      label: 'Type',
+      render: (value, row) => (
+        <span className={row.roadwork_id ? 'font-semibold text-orange-600' : ''}>
+          {value || 'General'}
+          {row.roadwork_id && ' (Roadwork)'}
+        </span>
+      ),
+    },
+    {
       key: 'status',
       label: 'Status',
       render: (value) => (
@@ -70,8 +80,15 @@ const GovEMAS = () => {
     },
     {
       key: 'time',
-      label: 'Last Updated',
-      render: (value) => new Date(value).toLocaleString(),
+      label: 'Reported At',
+      render: (value) => value ? new Date(value).toLocaleString() : '-',
+    },
+    {
+      key: 'roadwork_end',
+      label: 'Expected End',
+      render: (value, row) => row.roadwork_id && value
+        ? new Date(value).toLocaleString()
+        : '-',
     },
     {
       key: 'actions',

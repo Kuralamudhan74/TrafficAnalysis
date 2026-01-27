@@ -24,18 +24,22 @@ def get_emas_incidents(current_user):
         try:
             if status == 'all':
                 cursor.execute("""
-                    SELECT id, location, description, incident_type, status,
-                           latitude, longitude, reported_at, cleared_at, updated_at
-                    FROM emas_incidents
-                    ORDER BY reported_at DESC
+                    SELECT e.id, e.location, e.description, e.incident_type, e.status,
+                           e.latitude, e.longitude, e.reported_at, e.cleared_at, e.updated_at,
+                           e.roadwork_id, r.start_time as roadwork_start, r.end_time as roadwork_end
+                    FROM emas_incidents e
+                    LEFT JOIN roadwork_events r ON e.roadwork_id = r.id
+                    ORDER BY e.reported_at DESC
                 """)
             else:
                 cursor.execute("""
-                    SELECT id, location, description, incident_type, status,
-                           latitude, longitude, reported_at, cleared_at, updated_at
-                    FROM emas_incidents
-                    WHERE status = %s
-                    ORDER BY reported_at DESC
+                    SELECT e.id, e.location, e.description, e.incident_type, e.status,
+                           e.latitude, e.longitude, e.reported_at, e.cleared_at, e.updated_at,
+                           e.roadwork_id, r.start_time as roadwork_start, r.end_time as roadwork_end
+                    FROM emas_incidents e
+                    LEFT JOIN roadwork_events r ON e.roadwork_id = r.id
+                    WHERE e.status = %s
+                    ORDER BY e.reported_at DESC
                 """, (status,))
 
             incidents = cursor.fetchall()
@@ -52,7 +56,10 @@ def get_emas_incidents(current_user):
                     'longitude': incident[6],
                     'time': incident[7].isoformat() if incident[7] else None,
                     'cleared_at': incident[8].isoformat() if incident[8] else None,
-                    'updated_at': incident[9].isoformat() if incident[9] else None
+                    'updated_at': incident[9].isoformat() if incident[9] else None,
+                    'roadwork_id': incident[10],
+                    'roadwork_start': incident[11].isoformat() if incident[11] else None,
+                    'roadwork_end': incident[12].isoformat() if incident[12] else None
                 })
 
             return jsonify({
