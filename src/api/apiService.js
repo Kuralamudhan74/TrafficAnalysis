@@ -556,8 +556,8 @@ class ApiService {
   /**
    * List all algorithms
    */
-  static async getAlgorithms() {
-    return this.makeRequest('/algorithms/', { method: 'GET' })
+  static async getAlgorithms(token) {
+    return this.authenticatedRequest('/algorithms/', token, { method: 'GET' })
   }
 
   /**
@@ -606,8 +606,8 @@ class ApiService {
   /**
    * Get algorithm statistics
    */
-  static async getAlgorithmStats() {
-    return this.makeRequest('/algorithms/stats', { method: 'GET' })
+  static async getAlgorithmStats(token) {
+    return this.authenticatedRequest('/algorithms/stats', token, { method: 'GET' })
   }
 
   // ========== Traffic Map with Region Filter ==========
