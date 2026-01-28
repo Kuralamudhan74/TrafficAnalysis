@@ -215,11 +215,6 @@ const GovManageUsers = () => {
       ),
     },
     {
-      key: 'last_login',
-      label: 'Last Login',
-      render: (value) => value ? new Date(value).toLocaleDateString() : 'Never'
-    },
-    {
       key: 'actions',
       label: 'Actions',
       render: (_, row) => (
@@ -340,8 +335,16 @@ const GovManageUsers = () => {
       {/* Users Table */}
       <Card>
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4">
-            {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-4">
+            <div className="font-semibold mb-2">⚠️ {error}</div>
+            <div className="text-sm">
+              <p className="mb-2">To access user management, you need super admin privileges.</p>
+              <p className="mb-2">Run this SQL command to grant super admin access to your government account:</p>
+              <div className="bg-white border border-red-300 p-3 rounded font-mono text-xs overflow-x-auto">
+                UPDATE users SET is_super_admin = TRUE WHERE email = 'government@gmail.com';
+              </div>
+              <p className="mt-2 text-xs italic">Replace 'government@gmail.com' with your actual email address.</p>
+            </div>
           </div>
         )}
 
@@ -349,7 +352,7 @@ const GovManageUsers = () => {
           <div className="flex items-center justify-center py-12">
             <LoadingSpinner />
           </div>
-        ) : (
+        ) : !error && (
           <Table
             columns={columns}
             data={users}

@@ -213,6 +213,7 @@ const AppRouter = () => {
         <Route path="data-upload" element={<DataUpload />} />
         <Route path="bottlenecks" element={<Bottlenecks />} />
         <Route path="jam-prediction" element={<JamPrediction />} />
+        <Route path="trends" element={<AnalystTrends />} />
       </Route>
 
       {/* Developer routes with MapLayout (top nav only, no sidebar) */}
