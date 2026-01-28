@@ -218,36 +218,37 @@ const MapLayout = () => {
 
             {/* Right: Notification Bell + User Info + Logout */}
             <div className="flex items-center space-x-4">
-              {/* Notification Bell */}
-              <div className="relative">
-                <button
-                  onClick={handleNotificationClick}
-                  className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Notifications"
-                >
-                  <FiBell size={20} />
-                  {notificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                      {notificationCount > 9 ? '9+' : notificationCount}
-                    </span>
-                  )}
-                </button>
-                
-                {/* Notification Popup */}
-                {showNotificationPopup && (
-                  <>
-                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999]">
-                      <div className="p-4 border-b border-gray-200">
-                        <h3 className="font-semibold text-gray-900">Notifications</h3>
-                      </div>
-                      <div className="p-4">
-                        <p className="text-sm text-gray-600 mb-3">
-                          You have {notificationCount} new notification{notificationCount !== 1 ? 's' : ''}.
-                        </p>
-                        <button
-                          onClick={() => {
-                            navigate('/my-feedback')
-                            setShowNotificationPopup(false)
+              {/* Notification Bell - Hidden for developers */}
+              {user?.role !== 'developer' && (
+                <div className="relative">
+                  <button
+                    onClick={handleNotificationClick}
+                    className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Notifications"
+                  >
+                    <FiBell size={20} />
+                    {notificationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                        {notificationCount > 9 ? '9+' : notificationCount}
+                      </span>
+                    )}
+                  </button>
+                  
+                  {/* Notification Popup */}
+                  {showNotificationPopup && (
+                    <>
+                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999]">
+                        <div className="p-4 border-b border-gray-200">
+                          <h3 className="font-semibold text-gray-900">Notifications</h3>
+                        </div>
+                        <div className="p-4">
+                          <p className="text-sm text-gray-600 mb-3">
+                            You have {notificationCount} new notification{notificationCount !== 1 ? 's' : ''}.
+                          </p>
+                          <button
+                            onClick={() => {
+                              navigate('/my-feedback')
+                              setShowNotificationPopup(false)
                           }}
                           className="w-full text-sm text-blue-600 hover:text-blue-700 text-left font-medium"
                         >
@@ -261,7 +262,8 @@ const MapLayout = () => {
                     />
                   </>
                 )}
-              </div>
+                </div>
+              )}
 
               <div className="hidden sm:block text-sm text-gray-600">
                 <span className="font-medium">{user?.role || 'Guest'}</span>

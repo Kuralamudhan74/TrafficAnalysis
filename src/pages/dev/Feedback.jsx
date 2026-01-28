@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import Card from '../../components/Card'
 import Table from '../../components/Table'
@@ -12,6 +13,7 @@ import ApiService from '../../api/apiService'
 import { FiSend, FiMessageSquare, FiRefreshCw, FiCheck, FiX, FiEdit } from 'react-icons/fi'
 
 const DevFeedback = () => {
+  const { token } = useAuth()
   const [feedback, setFeedback] = useState([])
   const [broadcasts, setBroadcasts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -40,23 +42,26 @@ const DevFeedback = () => {
     category: '',
     status: ''
   })
-  const [activeTab, setActiveTab] = useState('feedback')
+  const [activeTab, setActiveTab] = useState('pending')
 
   useEffect(() => {
-    loadInitialData()
-  }, [])
-
-  useEffect(() => {
-    if (activeTab === 'feedback') {
-      loadFeedback()
-    } else {
-      loadBroadcasts()
+    if (token) {
+      loadInitialData()
     }
-  }, [filters, pagination.page, activeTab])
+  }, [token])
+
+  useEffect(() => {
+    if (token) {
+      if (activeTab === 'pending' || activeTab === 'resolved') {
+        loadFeedback()
+      } else if (activeTab === 'broadcasts') {
+        loadBroadcasts()
+      }
+    }
+  }, [filters, pagination.page, activeTab, token])
 
   const loadInitialData = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
       const [categoriesRes, statusesRes, statsRes] = await Promise.all([
         ApiService.getFeedbackCategories(token),
         ApiService.getFeedbackStatuses(token),
@@ -74,11 +79,14 @@ const DevFeedback = () => {
   const loadFeedback = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('auth_token')
+      // Filter by status based on active tab
+      const statusFilter = activeTab === 'pending' ? 'pending' : activeTab === 'resolved' ? 'resolved' : filters.status
+      
       const res = await ApiService.getAllFeedback(token, {
         page: pagination.page,
         limit: pagination.limit,
-        ...filters
+        ...filters,
+        status: statusFilter
       })
 
       if (res.success) {
@@ -99,7 +107,6 @@ const DevFeedback = () => {
   const loadBroadcasts = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('auth_token')
       const res = await ApiService.getBroadcasts(token)
 
       if (res.success) {
@@ -114,7 +121,6 @@ const DevFeedback = () => {
 
   const loadStats = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
       const res = await ApiService.getFeedbackStats(token)
       if (res.success) setStats(res.data)
     } catch (err) {
@@ -134,28 +140,35 @@ const DevFeedback = () => {
       return
     }
 
+    if (!token) {
+      toast.error('Authentication required. Please log in again.')
+      return
+    }
+
     try {
-      const token = localStorage.getItem('auth_token')
+      console.log('Responding to feedback:', selectedFeedback.id, 'with token:', token ? 'present' : 'missing')
       const res = await ApiService.respondToFeedback(selectedFeedback.id, responseText, token)
+      console.log('Response from API:', res)
 
       if (res.success) {
-        toast.success('Response sent successfully')
+        toast.success('Response sent successfully - Status updated to resolved')
         setRespondModalOpen(false)
         setSelectedFeedback(null)
         setResponseText('')
-        loadFeedback()
-        loadStats()
+        await loadFeedback()
+        await loadStats()
       } else {
+        console.error('Failed to respond:', res)
         toast.error(res.error || 'Failed to send response')
       }
     } catch (err) {
+      console.error('Error responding to feedback:', err)
       toast.error(err.message || 'Failed to send response')
     }
   }
 
   const handleUpdateStatus = async (feedbackId, newStatus) => {
     try {
-      const token = localStorage.getItem('auth_token')
       const res = await ApiService.updateFeedbackStatus(feedbackId, newStatus, token)
 
       if (res.success) {
@@ -177,7 +190,6 @@ const DevFeedback = () => {
     }
 
     try {
-      const token = localStorage.getItem('auth_token')
       const res = await ApiService.broadcastFeedback(broadcastData, token)
 
       if (res.success) {
@@ -211,24 +223,45 @@ const DevFeedback = () => {
     }
 
     try {
-      const token = localStorage.getItem('auth_token')
-      const res = await ApiService.updateFeedback(selectedFeedback.id, editData, token)
+      // Use respondToFeedback which automatically sets status to 'resolved'
+      const res = await ApiService.respondToFeedback(selectedFeedback.id, editData.message, token)
 
       if (res.success) {
-        toast.success(editData.broadcast ? 'Feedback updated and broadcast sent!' : 'Feedback updated successfully')
+        // If broadcast is checked, also send broadcast
+        if (editData.broadcast) {
+          try {
+            const broadcastRes = await ApiService.broadcastExistingFeedback(
+              selectedFeedback.id,
+              editData.message,
+              token
+            )
+            if (broadcastRes.success) {
+              toast.success('Response sent and broadcast successfully!')
+            } else {
+              toast.warning('Response sent but broadcast failed')
+            }
+          } catch (broadcastErr) {
+            console.error('Broadcast error:', broadcastErr)
+            toast.warning('Response sent but broadcast failed')
+          }
+        } else {
+          toast.success('Response sent successfully - Status updated to resolved')
+        }
+        
         setEditModalOpen(false)
         setSelectedFeedback(null)
         setEditData({ subject: '', message: '', category: '', broadcast: false })
-        loadFeedback()
-        loadStats()
+        await loadFeedback()
+        await loadStats()
         if (editData.broadcast) {
-          loadBroadcasts()
+          await loadBroadcasts()
         }
       } else {
-        toast.error(res.error || 'Failed to update feedback')
+        toast.error(res.error || 'Failed to send response')
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to update feedback')
+      console.error('Error sending response:', err)
+      toast.error(err.message || 'Failed to send response')
     }
   }
 
@@ -389,7 +422,7 @@ const DevFeedback = () => {
 
       {/* Statistics */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.total || 0}</div>
@@ -398,14 +431,8 @@ const DevFeedback = () => {
           </Card>
           <Card>
             <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">{stats.by_status?.new || 0}</div>
-              <div className="text-sm text-gray-500">New</div>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{stats.by_status?.in_progress || 0}</div>
-              <div className="text-sm text-gray-500">In Progress</div>
+              <div className="text-2xl font-bold text-orange-600">{stats.by_status?.pending || 0}</div>
+              <div className="text-sm text-gray-500">Pending</div>
             </div>
           </Card>
           <Card>
@@ -416,8 +443,8 @@ const DevFeedback = () => {
           </Card>
           <Card>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-600">{stats.response_rate || 0}%</div>
-              <div className="text-sm text-gray-500">Response Rate</div>
+              <div className="text-2xl font-bold text-purple-600">{stats.by_status?.broadcast || 0}</div>
+              <div className="text-sm text-gray-500">Broadcasts</div>
             </div>
           </Card>
         </div>
@@ -427,13 +454,19 @@ const DevFeedback = () => {
       <Card>
         <div className="flex space-x-4 border-b">
           <button
-            className={`pb-2 px-1 ${activeTab === 'feedback' ? 'border-b-2 border-blue-500 text-blue-600 font-medium' : 'text-gray-500'}`}
-            onClick={() => setActiveTab('feedback')}
+            className={`pb-2 px-1 ${activeTab === 'pending' ? 'border-b-2 border-blue-500 text-blue-600 font-medium' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('pending')}
           >
-            User Feedback
+            Pending Feedback
           </button>
           <button
-            className={`pb-2 px-1 ${activeTab === 'broadcasts' ? 'border-b-2 border-blue-500 text-blue-600 font-medium' : 'text-gray-500'}`}
+            className={`pb-2 px-1 ${activeTab === 'resolved' ? 'border-b-2 border-green-500 text-green-600 font-medium' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('resolved')}
+          >
+            Resolved Feedback
+          </button>
+          <button
+            className={`pb-2 px-1 ${activeTab === 'broadcasts' ? 'border-b-2 border-purple-500 text-purple-600 font-medium' : 'text-gray-500'}`}
             onClick={() => setActiveTab('broadcasts')}
           >
             Broadcasts
@@ -441,8 +474,8 @@ const DevFeedback = () => {
         </div>
       </Card>
 
-      {/* Filters (only for feedback tab) */}
-      {activeTab === 'feedback' && (
+      {/* Filters (only for feedback tabs) */}
+      {(activeTab === 'pending' || activeTab === 'resolved') && (
         <Card>
           <div className="flex flex-wrap gap-4 items-end">
             <div className="w-40">
@@ -480,13 +513,13 @@ const DevFeedback = () => {
         ) : (
           <>
             <Table
-              columns={activeTab === 'feedback' ? feedbackColumns : broadcastColumns}
-              data={activeTab === 'feedback' ? feedback : broadcasts}
-              emptyMessage={activeTab === 'feedback' ? 'No feedback found' : 'No broadcasts found'}
+              columns={(activeTab === 'pending' || activeTab === 'resolved') ? feedbackColumns : broadcastColumns}
+              data={(activeTab === 'pending' || activeTab === 'resolved') ? feedback : broadcasts}
+              emptyMessage={(activeTab === 'pending' || activeTab === 'resolved') ? `No ${activeTab} feedback found` : 'No broadcasts found'}
             />
 
             {/* Pagination (only for feedback) */}
-            {activeTab === 'feedback' && pagination.pages > 1 && (
+            {(activeTab === 'pending' || activeTab === 'resolved') && pagination.pages > 1 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t">
                 <div className="text-sm text-gray-500">
                   Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}

@@ -556,22 +556,22 @@ class ApiService {
   /**
    * List all algorithms
    */
-  static async getAlgorithms() {
-    return this.makeRequest('/algorithms/', { method: 'GET' })
+  static async getAlgorithms(token) {
+    return this.authenticatedRequest('/algorithms/', token, { method: 'GET' })
   }
 
   /**
    * Get a specific algorithm
    */
-  static async getAlgorithm(algorithmId) {
-    return this.makeRequest(`/algorithms/${algorithmId}`, { method: 'GET' })
+  static async getAlgorithm(algorithmId, token) {
+    return this.authenticatedRequest(`/algorithms/${algorithmId}`, token, { method: 'GET' })
   }
 
   /**
    * List only active algorithms
    */
-  static async getActiveAlgorithms() {
-    return this.makeRequest('/algorithms/active', { method: 'GET' })
+  static async getActiveAlgorithms(token) {
+    return this.authenticatedRequest('/algorithms/active', token, { method: 'GET' })
   }
 
   /**
@@ -606,8 +606,8 @@ class ApiService {
   /**
    * Get algorithm statistics
    */
-  static async getAlgorithmStats() {
-    return this.makeRequest('/algorithms/stats', { method: 'GET' })
+  static async getAlgorithmStats(token) {
+    return this.authenticatedRequest('/algorithms/stats', token, { method: 'GET' })
   }
 
   // ========== Traffic Map with Region Filter ==========

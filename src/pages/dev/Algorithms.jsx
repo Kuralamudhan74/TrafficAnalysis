@@ -24,15 +24,17 @@ const DevAlgorithms = () => {
   const [suspendReason, setSuspendReason] = useState('')
 
   useEffect(() => {
-    loadAlgorithms()
-    loadStats()
-  }, [])
+    if (token) {
+      loadAlgorithms()
+      loadStats()
+    }
+  }, [token])
 
   const loadAlgorithms = async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await ApiService.getAlgorithms()
+      const response = await ApiService.getAlgorithms(token)
       if (response.success) {
         setAlgorithms(response.algorithms)
       } else {
@@ -48,7 +50,7 @@ const DevAlgorithms = () => {
 
   const loadStats = async () => {
     try {
-      const response = await ApiService.getAlgorithmStats()
+      const response = await ApiService.getAlgorithmStats(token)
       if (response.success) {
         setStats(response.stats)
       }
