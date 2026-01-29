@@ -563,15 +563,15 @@ class ApiService {
   /**
    * Get a specific algorithm
    */
-  static async getAlgorithm(algorithmId) {
-    return this.makeRequest(`/algorithms/${algorithmId}`, { method: 'GET' })
+  static async getAlgorithm(algorithmId, token) {
+    return this.authenticatedRequest(`/algorithms/${algorithmId}`, token, { method: 'GET' })
   }
 
   /**
    * List only active algorithms
    */
-  static async getActiveAlgorithms() {
-    return this.makeRequest('/algorithms/active', { method: 'GET' })
+  static async getActiveAlgorithms(token) {
+    return this.authenticatedRequest('/algorithms/active', token, { method: 'GET' })
   }
 
   /**

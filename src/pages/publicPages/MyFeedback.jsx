@@ -5,12 +5,16 @@ import Card from '../../components/Card'
 import Badge from '../../components/Badge'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import Button from '../../components/Button'
+import Modal from '../../components/Modal'
 import { toast, ToastContainer } from '../../components/Toast'
-import { FiMessageSquare, FiClock, FiCheckCircle } from 'react-icons/fi'
+import { FiMessageSquare, FiClock, FiCheckCircle, FiTrash2 } from 'react-icons/fi'
 
 const MyFeedback = () => {
   const [feedback, setFeedback] = useState([])
   const [loading, setLoading] = useState(true)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selectedFeedbackId, setSelectedFeedbackId] = useState(null)
+  const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -38,6 +42,40 @@ const MyFeedback = () => {
       toast.error(err.message || 'Failed to load feedback')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = (feedbackId) => {
+    setSelectedFeedbackId(feedbackId)
+    setDeleteModalOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!selectedFeedbackId) return
+
+    setDeleting(true)
+    try {
+      const token = localStorage.getItem('auth_token')
+      if (!token) {
+        toast.error('Please login to delete feedback')
+        setDeleting(false)
+        return
+      }
+
+      const res = await ApiService.deleteFeedback(selectedFeedbackId, token)
+
+      if (res.success) {
+        toast.success('Feedback deleted successfully')
+        setDeleteModalOpen(false)
+        setSelectedFeedbackId(null)
+        loadMyFeedback() // Reload the list
+      } else {
+        toast.error(res.error || 'Failed to delete feedback')
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete feedback')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -129,6 +167,17 @@ const MyFeedback = () => {
                       Submitted: {formatDate(item.created_at)}
                     </p>
                   </div>
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="group relative p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 hover:shadow-md"
+                    title="Delete feedback"
+                  >
+                    <FiTrash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span className="absolute -bottom-8 right-0 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      Delete
+                    </span>
+                  </button>
                 </div>
 
                 {/* Your Message */}
@@ -205,6 +254,57 @@ const MyFeedback = () => {
           </div>
         </Card>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Feedback"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full">
+                <FiTrash2 className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-700">
+                Are you sure you want to delete this feedback? This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <FiTrash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -743,22 +743,41 @@ def update_feedback(feedback_id):
 
 
 @feedback_bp.route('/<int:feedback_id>', methods=['DELETE'])
-@admin_required
-def delete_feedback(feedback_id):
-    """Delete a feedback entry"""
+@permission_required('submit_feedback')
+def delete_feedback(feedback_id, current_user):
+    """Delete a feedback entry (users can delete their own, admins can delete any)"""
     try:
+        user = current_user
+        
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("DELETE FROM feedback WHERE id = %s RETURNING id", (feedback_id,))
+        # Check if the feedback belongs to the current user or if user is admin
+        cursor.execute("SELECT user_id FROM feedback WHERE id = %s", (feedback_id,))
         result = cursor.fetchone()
+        
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'Feedback not found'}), 404
+        
+        feedback_user_id = result[0]
+        
+        # Allow deletion if user owns the feedback OR user is admin/developer
+        if feedback_user_id != user.get('id') and user.get('role') not in ['government', 'developer']:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'You can only delete your own feedback'}), 403
+
+        cursor.execute("DELETE FROM feedback WHERE id = %s RETURNING id", (feedback_id,))
+        delete_result = cursor.fetchone()
         conn.commit()
 
         cursor.close()
         conn.close()
 
-        if not result:
-            return jsonify({'error': 'Feedback not found'}), 404
+        if not delete_result:
+            return jsonify({'error': 'Failed to delete feedback'}), 500
 
         return jsonify({
             'success': True,

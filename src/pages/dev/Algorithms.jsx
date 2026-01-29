@@ -24,9 +24,11 @@ const DevAlgorithms = () => {
   const [suspendReason, setSuspendReason] = useState('')
 
   useEffect(() => {
-    loadAlgorithms()
-    loadStats()
-  }, [])
+    if (token) {
+      loadAlgorithms()
+      loadStats()
+    }
+  }, [token])
 
   const loadAlgorithms = async () => {
     setLoading(true)
