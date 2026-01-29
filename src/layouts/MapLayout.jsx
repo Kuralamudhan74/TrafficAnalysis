@@ -197,7 +197,7 @@ const MapLayout = () => {
                     </button>
 
                     {dropdownOpen && (
-                      <div className="absolute left-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                      <div className="absolute left-0 mt-1 w-72 max-h-64 overflow-y-auto bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[9999]">
                         {dropdownItems.map((item) => {
                           const Icon = item.icon
                           const isActive = location.pathname === item.path
