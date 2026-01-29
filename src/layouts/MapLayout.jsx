@@ -118,6 +118,11 @@ const MapLayout = () => {
           { path: '/map', label: 'Live Congestion Map', icon: FiMap },
           { path: '/analyst/bottlenecks', label: 'Bottleneck Finder', icon: FiAlertCircle },
           { path: '/analyst/jam-prediction', label: 'Jam Prediction', icon: FiNavigation },
+          { path: '/analyst/preprocess', label: 'Data Preprocessing', icon: FiDatabase },
+          { path: '/analyst/run-model', label: 'Run Traffic Flow Model', icon: FiBarChart2 },
+          { path: '/analyst/trends', label: 'View Historical Trends', icon: FiBarChart2 },
+          { path: '/analyst/schedule', label: 'Schedule Automated Runs', icon: FiFileText },
+          { path: '/analyst/anomalies', label: 'Detect Anomalies', icon: FiAlertCircle },
         ]
       default:
         return []
