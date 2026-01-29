@@ -64,6 +64,29 @@ const JamPrediction = () => {
     return 'Low'
   }
 
+  // Extract coordinates from prediction (handles both geometry and coordinates format)
+  const getCoordinates = (prediction) => {
+    // If coordinates object exists (legacy format)
+    if (prediction.coordinates && prediction.coordinates.lat !== undefined) {
+      return [prediction.coordinates.lat, prediction.coordinates.lon]
+    }
+    // If geometry exists (GeoJSON format)
+    if (prediction.geometry && prediction.geometry.coordinates) {
+      const coords = prediction.geometry.coordinates
+      if (prediction.geometry.type === 'LineString' && coords.length > 0) {
+        // Get midpoint of the line
+        const midIndex = Math.floor(coords.length / 2)
+        const [lon, lat] = coords[midIndex]
+        return [lat, lon]
+      } else if (prediction.geometry.type === 'Point') {
+        const [lon, lat] = coords
+        return [lat, lon]
+      }
+    }
+    // Fallback to Singapore center
+    return [1.3521, 103.8198]
+  }
+
   return (
     <div className="space-y-6">
       <ToastContainer />
@@ -251,7 +274,7 @@ const JamPrediction = () => {
               {predictions.map((prediction, index) => (
                 <CircleMarker
                   key={index}
-                  center={[prediction.coordinates.lat, prediction.coordinates.lon]}
+                  center={getCoordinates(prediction)}
                   radius={8 + (prediction.jam_probability * 12)}
                   fillColor={getRiskColor(prediction.jam_probability)}
                   color="#fff"

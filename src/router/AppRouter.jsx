@@ -302,12 +302,12 @@ const AppRouter = () => {
         <Route path="deployments" element={<DevDeployments />} />
       </Route>
 
-      {/* Analyst routes */}
+      {/* Analyst routes - uses MapLayout with top navigation */}
       <Route
         path="/analyst/*"
         element={
           <ProtectedRoute allowedRoles={['analyst']}>
-            <DashboardLayout />
+            <MapLayout />
           </ProtectedRoute>
         }
       >

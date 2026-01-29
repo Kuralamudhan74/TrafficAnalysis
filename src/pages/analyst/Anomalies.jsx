@@ -75,8 +75,9 @@ const AnalystAnomalies = () => {
       const res = await ApiService.detectAnomalies(detectParams, token)
 
       if (res.success) {
-        const count = res.data.anomalies_detected || 0
-        toast.success(`Detection complete: ${count} anomalies found`)
+        const count = res.data.total || 0
+        const isDemo = res.data.is_demo_data ? ' (demo data)' : ''
+        toast.success(`Detection complete: ${count} anomalies found${isDemo}`)
         setDetectModalOpen(false)
         loadData()
       } else {
@@ -144,6 +145,8 @@ const AnalystAnomalies = () => {
   const getTypeIcon = (type) => {
     switch (type) {
       case 'speed_anomaly': return '🏎️'
+      case 'speed_drop': return '🐢'
+      case 'speed_spike': return '🏎️'
       case 'flow_anomaly': return '🚗'
       case 'occupancy_anomaly': return '📊'
       case 'incident_spike': return '🚨'
@@ -175,26 +178,25 @@ const AnalystAnomalies = () => {
       )
     },
     {
-      key: 'location_name',
+      key: 'road_name',
       label: 'Location',
-      render: (value, row) => (
+      render: (value) => (
         <div>
           <div className="font-medium">{value || 'Unknown'}</div>
-          {row.road_name && <div className="text-xs text-gray-500">{row.road_name}</div>}
         </div>
       )
     },
     {
-      key: 'metric_value',
+      key: 'current_speed',
       label: 'Value',
       render: (value, row) => (
         <div className="text-sm">
-          <div className="font-mono">{value?.toFixed(2)}</div>
+          <div className="font-mono">{value?.toFixed(2)} km/h</div>
           <div className="text-xs text-gray-500">
-            Expected: {row.expected_value?.toFixed(2) || '-'}
+            Expected: {row.expected_speed?.toFixed(2) || '-'} km/h
           </div>
           <div className="text-xs text-gray-500">
-            Z-score: {row.z_score?.toFixed(2) || '-'}
+            Deviation: {row.deviation_percent?.toFixed(1) || '-'}%
           </div>
         </div>
       )
@@ -317,6 +319,8 @@ const AnalystAnomalies = () => {
               onChange={(e) => setFilters({ ...filters, anomaly_type: e.target.value })}
               options={[
                 { value: '', label: 'All Types' },
+                { value: 'speed_drop', label: 'Speed Drop (Congestion)' },
+                { value: 'speed_spike', label: 'Speed Spike (Unusual)' },
                 { value: 'speed_anomaly', label: 'Speed Anomaly' },
                 { value: 'flow_anomaly', label: 'Flow Anomaly' },
                 { value: 'occupancy_anomaly', label: 'Occupancy Anomaly' },

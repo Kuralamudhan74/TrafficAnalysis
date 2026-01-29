@@ -856,11 +856,17 @@ class ApiService {
   static async getAnomalies(token, params = {}) {
     const queryParams = new URLSearchParams()
     if (params.severity) queryParams.append('severity', params.severity)
-    if (params.type) queryParams.append('type', params.type)
-    if (params.confirmed !== undefined) queryParams.append('confirmed', params.confirmed)
-    if (params.resolved !== undefined) queryParams.append('resolved', params.resolved)
+    // Support both naming conventions
+    const anomalyType = params.type || params.anomaly_type
+    if (anomalyType) queryParams.append('type', anomalyType)
+    const confirmed = params.confirmed !== undefined ? params.confirmed : params.is_confirmed
+    if (confirmed !== undefined && confirmed !== '') queryParams.append('confirmed', confirmed)
+    const resolved = params.resolved !== undefined ? params.resolved : params.is_resolved
+    if (resolved !== undefined && resolved !== '') queryParams.append('resolved', resolved)
     if (params.limit) queryParams.append('limit', params.limit)
+    // Support both offset and page-based pagination
     if (params.offset) queryParams.append('offset', params.offset)
+    else if (params.page) queryParams.append('offset', (params.page - 1) * (params.limit || 20))
 
     return this.authenticatedRequest(`/anomalies/?${queryParams.toString()}`, token, { method: 'GET' })
   }
