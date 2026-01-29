@@ -33,36 +33,47 @@ const AnalystSchedule = () => {
 
   const loadData = async () => {
     setLoading(true)
+    const token = localStorage.getItem('auth_token')
+
+    // Load each resource independently to prevent one failure from blocking others
     try {
-      const token = localStorage.getItem('auth_token')
-
-      const [schedulesRes, presetsRes, algorithmsRes, statsRes] = await Promise.all([
-        ApiService.getSchedules(token, true),
-        ApiService.getFrequencyPresets(),
-        ApiService.getAlgorithms(),
-        ApiService.getScheduleStats(token)
-      ])
-
+      const schedulesRes = await ApiService.getSchedules(token, true)
       if (schedulesRes.success) {
         setSchedules(schedulesRes.data.schedules || [])
       }
+    } catch (err) {
+      console.error('Failed to load schedules:', err)
+      toast.error('Failed to load schedules')
+    }
 
+    try {
+      const presetsRes = await ApiService.getFrequencyPresets()
       if (presetsRes.success) {
         setFrequencyPresets(presetsRes.data || [])
       }
+    } catch (err) {
+      console.error('Failed to load frequency presets:', err)
+    }
 
+    try {
+      const algorithmsRes = await ApiService.getAlgorithms()
       if (algorithmsRes.success) {
         setAlgorithms(algorithmsRes.data.algorithms || [])
       }
+    } catch (err) {
+      console.error('Failed to load algorithms:', err)
+    }
 
+    try {
+      const statsRes = await ApiService.getScheduleStats(token)
       if (statsRes.success) {
         setStats(statsRes.data)
       }
     } catch (err) {
-      toast.error('Failed to load schedules')
-    } finally {
-      setLoading(false)
+      console.error('Failed to load stats:', err)
     }
+
+    setLoading(false)
   }
 
   const handleCreate = () => {
