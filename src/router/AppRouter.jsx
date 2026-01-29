@@ -195,7 +195,7 @@ const AppRouter = () => {
         path="/gov/*"
         element={
           <ProtectedRoute allowedRoles={['government']}>
-            <DashboardLayout />
+            <MapLayout />
           </ProtectedRoute>
         }
       >

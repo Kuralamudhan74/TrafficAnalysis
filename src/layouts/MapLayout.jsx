@@ -15,7 +15,9 @@ import {
   FiChevronDown,
   FiBell,
   FiDatabase,
-  FiShield
+  FiShield,
+  FiCloud,
+  FiUsers
 } from 'react-icons/fi'
 
 const MapLayout = () => {
@@ -95,12 +97,17 @@ const MapLayout = () => {
         return [
           { path: '/gov/dashboard', label: 'Dashboard', icon: FiBarChart2 },
           { path: '/map', label: 'Live Congestion Map', icon: FiMap },
-          { path: '/gov/heatmap', label: 'Congestion Heatmap', icon: FiMap },
+          // { path: '/gov/heatmap', label: 'Congestion Heatmap', icon: FiMap }, // Hidden per user request
           { path: '/gov/roadwork', label: 'Roadwork Event', icon: FiFileText },
           { path: '/gov/emas', label: 'EMAS Incident', icon: FiAlertCircle },
-          { path: '/gov/reports', label: 'Reports', icon: FiFileText },
+          // { path: '/gov/reports', label: 'Reports', icon: FiFileText }, // Hidden per user request
+          { path: '/gov/data-upload', label: 'Upload & Analyze', icon: FiDatabase },
           { path: '/gov/bottlenecks', label: 'Bottleneck Finder', icon: FiAlertCircle },
           { path: '/gov/jam-prediction', label: 'Jam Prediction', icon: FiNavigation },
+          { path: '/gov/trends', label: 'View Historical Trends', icon: FiBarChart2 },
+          { path: '/gov/weather', label: 'Weather Overlay', icon: FiCloud },
+          { path: '/gov/transport', label: 'Public Transport Overlay', icon: FiNavigation },
+          { path: '/gov/manage-users', label: 'Manage User Accounts', icon: FiUsers },
         ]
       case 'developer':
         return [
