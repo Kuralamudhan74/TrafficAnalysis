@@ -84,19 +84,19 @@ const PublicHotspots = () => {
             <p className="text-gray-600">Most congested areas in Singapore today</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <Select
+            {/* <Select
               value={region}
               onChange={(e) => setRegion(e.target.value)}
               options={[
                 { value: 'All', label: 'All Regions' },
                 { value: 'North', label: 'North' },
+                { value: 'Central', label: 'Central' },
                 { value: 'South', label: 'South' },
                 { value: 'East', label: 'East' },
                 { value: 'West', label: 'West' },
-                { value: 'Central', label: 'Central' },
               ]}
               className="w-full sm:w-48"
-            />
+            /> */}
             <Select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}

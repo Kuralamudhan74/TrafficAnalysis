@@ -7,23 +7,23 @@ import ApiService from '../../api/apiService';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Singapore region options for filtering
+// Singapore region options for filtering (focused on areas with route data)
 const REGION_OPTIONS = [
   { value: 'All', label: 'All Regions' },
   { value: 'North', label: 'North' },
+  { value: 'Central', label: 'Central' },
   { value: 'South', label: 'South' },
   { value: 'East', label: 'East' },
-  { value: 'West', label: 'West' },
-  { value: 'Central', label: 'Central' }
+  { value: 'West', label: 'West' }
 ];
 
-// Region boundaries for map overlays and filtering
+// Region boundaries for map overlays and filtering (subdividing the route-dense area)
 const REGION_BOUNDARIES = {
-  North: { bounds: [[1.38, 103.70], [1.47, 103.92]], center: [1.425, 103.81], zoom: 12 },
-  South: { bounds: [[1.24, 103.76], [1.32, 103.90]], center: [1.28, 103.83], zoom: 12 },
-  East: { bounds: [[1.28, 103.88], [1.42, 104.10]], center: [1.35, 103.99], zoom: 12 },
-  West: { bounds: [[1.28, 103.60], [1.44, 103.80]], center: [1.36, 103.70], zoom: 12 },
-  Central: { bounds: [[1.26, 103.78], [1.38, 103.88]], center: [1.32, 103.83], zoom: 13 }
+  North: { bounds: [[1.32, 103.82], [1.36, 103.88]], center: [1.34, 103.85], zoom: 14 },
+  Central: { bounds: [[1.29, 103.84], [1.32, 103.88]], center: [1.305, 103.86], zoom: 14 },
+  South: { bounds: [[1.27, 103.83], [1.29, 103.87]], center: [1.28, 103.85], zoom: 15 },
+  East: { bounds: [[1.29, 103.88], [1.34, 103.90]], center: [1.315, 103.89], zoom: 14 },
+  West: { bounds: [[1.30, 103.82], [1.33, 103.84]], center: [1.315, 103.83], zoom: 14 }
 };
 
 // Map mode options
@@ -40,11 +40,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Singapore coordinates
-const SINGAPORE_CENTER = [1.3521, 103.8198];
+// Singapore coordinates (zoomed to route-dense area only)
+const SINGAPORE_CENTER = [1.3100, 103.8550];
 const SINGAPORE_BOUNDS = [
-  [1.16, 103.6], // Southwest
-  [1.48, 104.0]  // Northeast
+  [1.26, 103.81], // Southwest (route-dense area)
+  [1.37, 103.91]  // Northeast (route-dense area)
 ];
 
 // Map click handler component
@@ -194,6 +194,8 @@ const TrafficMap = () => {
   const [bookmarkNotes, setBookmarkNotes] = useState('');
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [showSavedRoutes, setShowSavedRoutes] = useState(false);
+  const [activeIncidents, setActiveIncidents] = useState([]);
+  const [showActiveIncidents, setShowActiveIncidents] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('All');
   const [mapMode, setMapMode] = useState(MAP_MODES.LIVE);
   const [predictionHorizon, setPredictionHorizon] = useState(30); // minutes
@@ -389,13 +391,45 @@ const TrafficMap = () => {
     }
   };
 
+  // Fetch active EMAS incidents
+  const fetchActiveIncidents = async () => {
+    if (!isAuthenticated || !token) return;
+
+    try {
+      const response = await ApiService.getEmasIncidents(token, 'all');
+      if (response.success) {
+        // Filter only Active and Investigating incidents (not Clear/Cleared)
+        const active = (response.data || []).filter(
+          incident => incident.status !== 'Clear' && incident.status !== 'Cleared'
+        );
+        setActiveIncidents(active);
+      }
+    } catch (error) {
+      console.error('Error fetching active incidents:', error);
+    }
+  };
+
   // Load bookmarks on mount if authenticated
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchBookmarks();
       fetchSavedRoutes();
+      fetchActiveIncidents();
     }
   }, [isAuthenticated, token]);
+
+  // Auto-refresh active incidents every 30 seconds when sidebar is open
+  useEffect(() => {
+    let incidentInterval;
+    if (showActiveIncidents && isAuthenticated && token) {
+      incidentInterval = setInterval(() => {
+        fetchActiveIncidents();
+      }, 30000); // 30 seconds
+    }
+    return () => {
+      if (incidentInterval) clearInterval(incidentInterval);
+    };
+  }, [showActiveIncidents, isAuthenticated, token]);
 
 
 
@@ -547,6 +581,79 @@ const TrafficMap = () => {
 
   return (
     <div className="flex-1 flex bg-gray-50 h-[calc(100vh-64px)]">
+      {/* Active Incidents Sidebar */}
+      {isAuthenticated && showActiveIncidents && (
+        <div className="w-80 flex-shrink-0 bg-white border-r overflow-y-auto">
+          <div className="p-4 border-b">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-bold text-gray-900">Active Incidents</h3>
+              <button
+                onClick={() => setShowActiveIncidents(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-gray-600">Real-time EMAS incident monitoring</p>
+          </div>
+
+          <div className="p-4 space-y-3">
+            {activeIncidents.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">No active incidents</p>
+                <p className="text-xs text-gray-400 mt-2">All clear! 🎉</p>
+              </div>
+            ) : (
+              activeIncidents.map((incident) => (
+                <div
+                  key={incident.id}
+                  className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg">
+                          {incident.type === 'Accident' ? '🚗' :
+                           incident.type === 'Vehicle Breakdown' ? '🔧' :
+                           incident.type === 'Road Obstruction' ? '🚧' :
+                           incident.type === 'Heavy Traffic' ? '🚦' :
+                           incident.type === 'Road Closure' ? '⛔' :
+                           incident.type?.includes('Roadwork') ? '🚧' : '⚠️'}
+                        </span>
+                        <h4 className="font-semibold text-sm text-gray-900">
+                          {incident.type}
+                        </h4>
+                      </div>
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                        incident.status === 'Active' ? 'bg-red-100 text-red-800' :
+                        incident.status === 'Investigating' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {incident.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-700">
+                      <span className="font-medium">Location:</span> {incident.location}
+                    </p>
+                    {incident.description && (
+                      <p className="text-xs text-gray-600">
+                        <span className="font-medium">Details:</span> {incident.description}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-2">
+                      {incident.time ? new Date(incident.time).toLocaleString() : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Saved Routes Sidebar */}
       {isAuthenticated && showSavedRoutes && (
         <div className="w-80 flex-shrink-0 bg-white border-r overflow-y-auto">
@@ -656,6 +763,17 @@ const TrafficMap = () => {
                 </button>
               )}
 
+              {/* Active Incidents Button */}
+              {isAuthenticated && (
+                <button
+                  onClick={() => setShowActiveIncidents(!showActiveIncidents)}
+                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm flex items-center gap-2"
+                >
+                  <span>🚨</span>
+                  <span>{showActiveIncidents ? 'Hide' : 'Active Incidents'} ({activeIncidents.length})</span>
+                </button>
+              )}
+
               {/* Auto-refresh toggle */}
               {mapMode === MAP_MODES.LIVE && (
                 <label className="flex items-center">
@@ -685,7 +803,7 @@ const TrafficMap = () => {
         <div className="bg-white border-b px-6 py-3">
           <div className="flex items-center justify-between">
             {/* Region Filter */}
-            <div className="flex items-center space-x-3">
+            {/* <div className="flex items-center space-x-3">
               <label className="text-sm font-medium text-gray-700">Region:</label>
               <select
                 value={selectedRegion}
@@ -703,7 +821,7 @@ const TrafficMap = () => {
                   Filtering: {selectedRegion} Singapore
                 </span>
               )}
-            </div>
+            </div> */}
 
             {/* Map Mode Toggle */}
             <div className="flex items-center space-x-2">
@@ -808,7 +926,7 @@ const TrafficMap = () => {
           )}
 
           {/* Region overlays - show when no specific region is selected */}
-          {selectedRegion === 'All' && Object.entries(REGION_BOUNDARIES).map(([regionName, data]) => (
+          {/* {selectedRegion === 'All' && Object.entries(REGION_BOUNDARIES).map(([regionName, data]) => (
             <Rectangle
               key={regionName}
               bounds={data.bounds}
@@ -835,7 +953,7 @@ const TrafficMap = () => {
                 </div>
               </Tooltip>
             </Rectangle>
-          ))}
+          ))} */}
 
           {/* Render bookmark markers */}
           {bookmarks.map((bookmark) => (

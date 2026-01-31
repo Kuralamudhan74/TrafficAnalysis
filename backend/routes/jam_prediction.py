@@ -1,12 +1,15 @@
 """
 Jam Prediction Routes
-Handles traffic jam prediction with historical data simulation
+Handles traffic jam prediction with actual algorithm implementations
 """
 
 from flask import Blueprint, request, jsonify
 import logging
 import random
+import math
+import numpy as np
 from datetime import datetime, timedelta
+from collections import defaultdict
 import sys
 import os
 
@@ -27,11 +30,11 @@ influence_models = InfluenceModels()
 
 # Singapore region boundaries (lat/lon)
 SINGAPORE_REGIONS = {
-    'North': {'lat_min': 1.38, 'lat_max': 1.47, 'lon_min': 103.70, 'lon_max': 103.92},
-    'South': {'lat_min': 1.24, 'lat_max': 1.32, 'lon_min': 103.76, 'lon_max': 103.90},
-    'East': {'lat_min': 1.28, 'lat_max': 1.42, 'lon_min': 103.88, 'lon_max': 104.10},
-    'West': {'lat_min': 1.28, 'lat_max': 1.44, 'lon_min': 103.60, 'lon_max': 103.80},
-    'Central': {'lat_min': 1.26, 'lat_max': 1.38, 'lon_min': 103.78, 'lon_max': 103.88}
+    'North': {'lat_min': 1.32, 'lat_max': 1.36, 'lon_min': 103.82, 'lon_max': 103.88},
+    'Central': {'lat_min': 1.29, 'lat_max': 1.32, 'lon_min': 103.84, 'lon_max': 103.88},
+    'South': {'lat_min': 1.27, 'lat_max': 1.29, 'lon_min': 103.83, 'lon_max': 103.87},
+    'East': {'lat_min': 1.29, 'lat_max': 1.34, 'lon_min': 103.88, 'lon_max': 103.90},
+    'West': {'lat_min': 1.30, 'lat_max': 1.33, 'lon_min': 103.82, 'lon_max': 103.84}
 }
 
 
@@ -92,99 +95,387 @@ SINGAPORE_ROADS = [
 ]
 
 
+def build_road_network():
+    """
+    Build a graph representation of the road network.
+    Returns adjacency list where each road is connected to nearby roads.
+    """
+    network = defaultdict(list)
+    
+    # Connect roads that are geographically close (within ~2km)
+    distance_threshold = 0.02  # Approximately 2km in lat/lon
+    
+    for i, road1 in enumerate(SINGAPORE_ROADS):
+        for j, road2 in enumerate(SINGAPORE_ROADS):
+            if i >= j:  # Avoid duplicate connections and self-loops
+                continue
+            
+            # Calculate Euclidean distance
+            lat_diff = road1['lat'] - road2['lat']
+            lon_diff = road1['lon'] - road2['lon']
+            distance = math.sqrt(lat_diff**2 + lon_diff**2)
+            
+            if distance < distance_threshold:
+                # Bidirectional connection with distance-based weight
+                weight = 1.0 - (distance / distance_threshold)  # Closer roads have higher weight
+                network[i].append((j, weight))
+                network[j].append((i, weight))
+    
+    return network
+
+
+def run_lim_model(network, initial_infected, time_steps, base_infection_prob=0.3):
+    """
+    Linear Independent Cascade (LIM) Model
+    Each infected node attempts to infect each neighbor independently with probability p.
+    Once an infection attempt is made, the edge becomes inactive.
+    
+    Returns: Dictionary mapping road_index -> infection_probability
+    """
+    num_nodes = len(SINGAPORE_ROADS)
+    infection_counts = np.zeros(num_nodes)
+    num_simulations = 100  # Monte Carlo simulations
+    
+    for sim in range(num_simulations):
+        infected = set(initial_infected)
+        newly_infected = set(initial_infected)
+        attempted_edges = set()
+        
+        for step in range(time_steps):
+            next_infected = set()
+            
+            for node in newly_infected:
+                # Try to infect neighbors
+                for neighbor, weight in network[node]:
+                    edge = tuple(sorted([node, neighbor]))
+                    
+                    # Skip if edge already attempted
+                    if edge in attempted_edges:
+                        continue
+                    
+                    attempted_edges.add(edge)
+                    
+                    # Infection probability based on edge weight and base probability
+                    infection_prob = base_infection_prob * weight
+                    
+                    if neighbor not in infected and random.random() < infection_prob:
+                        next_infected.add(neighbor)
+                        infected.add(neighbor)
+            
+            newly_infected = next_infected
+            
+            if not newly_infected:  # No new infections
+                break
+        
+        # Record which nodes got infected in this simulation
+        for node in infected:
+            infection_counts[node] += 1
+    
+    # Calculate probabilities
+    probabilities = infection_counts / num_simulations
+    return {i: probabilities[i] for i in range(num_nodes)}
+
+
+def run_sir_model(network, initial_infected, time_steps, beta=0.4, gamma=0.1):
+    """
+    SIR (Susceptible-Infected-Recovered) Model
+    Nodes can be in 3 states: Susceptible, Infected, Recovered
+    - Infected nodes spread to susceptible neighbors with rate beta
+    - Infected nodes recover with rate gamma
+    
+    Returns: Dictionary mapping road_index -> max_infection_probability
+    """
+    num_nodes = len(SINGAPORE_ROADS)
+    max_infection_probs = np.zeros(num_nodes)
+    num_simulations = 100
+    
+    for sim in range(num_simulations):
+        # States: 0=Susceptible, 1=Infected, 2=Recovered
+        states = np.zeros(num_nodes, dtype=int)
+        for node in initial_infected:
+            states[node] = 1
+        
+        infection_history = np.zeros(num_nodes)
+        
+        for step in range(time_steps):
+            infected_nodes = np.where(states == 1)[0]
+            
+            if len(infected_nodes) == 0:
+                break
+            
+            new_states = states.copy()
+            
+            # Spread from infected to susceptible
+            for node in infected_nodes:
+                for neighbor, weight in network[node]:
+                    if states[neighbor] == 0:  # Susceptible
+                        # Infection probability with weight
+                        infection_prob = beta * weight
+                        if random.random() < infection_prob:
+                            new_states[neighbor] = 1
+                            infection_history[neighbor] = 1
+                
+                # Recovery process
+                if random.random() < gamma:
+                    new_states[node] = 2  # Recovered
+            
+            states = new_states
+        
+        # Record maximum infection state reached
+        for node in range(num_nodes):
+            if infection_history[node] > 0 or node in initial_infected:
+                max_infection_probs[node] += 1
+    
+    # Calculate probabilities
+    probabilities = max_infection_probs / num_simulations
+    return {i: probabilities[i] for i in range(num_nodes)}
+
+
+def run_ltm_model(network, initial_infected, time_steps, base_threshold=0.3):
+    """
+    LTM (Linear Threshold Model)
+    Nodes become infected when the weighted sum of infected neighbors exceeds their threshold.
+    Unlike LIM, this is deterministic based on cumulative neighbor influence.
+    
+    Returns: Dictionary mapping road_index -> infection_probability
+    """
+    num_nodes = len(SINGAPORE_ROADS)
+    infection_counts = np.zeros(num_nodes)
+    num_simulations = 100
+    
+    for sim in range(num_simulations):
+        # Assign random thresholds to each node
+        thresholds = np.random.uniform(base_threshold * 0.7, base_threshold * 1.3, num_nodes)
+        
+        infected = set(initial_infected)
+        
+        for step in range(time_steps):
+            new_infections = set()
+            
+            # Check each susceptible node
+            for node in range(num_nodes):
+                if node in infected:
+                    continue
+                
+                # Calculate weighted influence from infected neighbors
+                influence = 0.0
+                total_weight = 0.0
+                
+                for neighbor, weight in network[node]:
+                    total_weight += weight
+                    if neighbor in infected:
+                        influence += weight
+                
+                # Normalize influence by total possible weight
+                if total_weight > 0:
+                    normalized_influence = influence / total_weight
+                    
+                    # Node becomes infected if influence exceeds threshold
+                    if normalized_influence >= thresholds[node]:
+                        new_infections.add(node)
+            
+            # Add newly infected nodes
+            infected.update(new_infections)
+            
+            if not new_infections:  # No new infections
+                break
+        
+        # Record which nodes got infected
+        for node in infected:
+            infection_counts[node] += 1
+    
+    # Calculate probabilities
+    probabilities = infection_counts / num_simulations
+    return {i: probabilities[i] for i in range(num_nodes)}
+
+
+def run_sis_model(network, initial_infected, time_steps, beta=0.35, gamma=0.12):
+    """
+    SIS (Susceptible-Infected-Susceptible) Model
+    Nodes can be in 2 states: Susceptible, Infected
+    - Infected nodes spread to susceptible neighbors with rate beta
+    - Infected nodes recover with rate gamma and become susceptible again (can be reinfected)
+    
+    Returns: Dictionary mapping road_index -> infection_probability
+    """
+    num_nodes = len(SINGAPORE_ROADS)
+    infection_time_sum = np.zeros(num_nodes)
+    num_simulations = 100
+    
+    for sim in range(num_simulations):
+        # States: 0=Susceptible, 1=Infected
+        states = np.zeros(num_nodes, dtype=int)
+        for node in initial_infected:
+            states[node] = 1
+        
+        # Track time each node spends infected
+        time_infected = np.zeros(num_nodes)
+        
+        for step in range(time_steps):
+            infected_nodes = np.where(states == 1)[0]
+            
+            if len(infected_nodes) == 0:
+                break
+            
+            # Count time infected for all currently infected nodes
+            for node in infected_nodes:
+                time_infected[node] += 1
+            
+            new_states = states.copy()
+            
+            # Spread from infected to susceptible
+            for node in infected_nodes:
+                for neighbor, weight in network[node]:
+                    if states[neighbor] == 0:  # Susceptible
+                        infection_prob = beta * weight
+                        if random.random() < infection_prob:
+                            new_states[neighbor] = 1
+                
+                # Recovery process (back to susceptible)
+                if random.random() < gamma:
+                    new_states[node] = 0  # Back to susceptible
+            
+            states = new_states
+        
+        # Accumulate total infection time
+        infection_time_sum += time_infected
+    
+    # Calculate probabilities based on average fraction of time spent infected
+    max_time = time_steps
+    probabilities = np.minimum(1.0, infection_time_sum / (num_simulations * max_time))
+    return {i: probabilities[i] for i in range(num_nodes)}
+
+
+def identify_initial_jammed_roads(region=None):
+    """
+    Identify roads that are currently jammed (starting points for spread).
+    In a real system, this would use actual traffic data.
+    For now, randomly select some high-traffic roads as initial jam points.
+    """
+    filtered_roads = []
+    for idx, road in enumerate(SINGAPORE_ROADS):
+        if region and not is_in_region(road['lat'], road['lon'], region):
+            continue
+        filtered_roads.append(idx)
+    
+    # Select 10-20% of roads as initially jammed (favor expressways)
+    num_initial = max(2, len(filtered_roads) // 8)
+    
+    # Prioritize expressways
+    expressway_indices = [idx for idx in filtered_roads if SINGAPORE_ROADS[idx]['type'] == 'expressway']
+    major_indices = [idx for idx in filtered_roads if SINGAPORE_ROADS[idx]['type'] == 'major']
+    
+    initial_jammed = []
+    
+    # Take some expressways first
+    num_expressways = min(len(expressway_indices), num_initial // 2)
+    initial_jammed.extend(random.sample(expressway_indices, num_expressways) if expressway_indices else [])
+    
+    # Fill rest with major roads
+    remaining = num_initial - len(initial_jammed)
+    if remaining > 0 and major_indices:
+        initial_jammed.extend(random.sample(major_indices, min(remaining, len(major_indices))))
+    
+    return initial_jammed
+
+
 def generate_fake_historical_data(time_horizon_minutes, model_type='LIM', region=None):
     """
-    Generate fake historical traffic congestion data for different time horizons
-
+    Generate traffic jam predictions using actual spread algorithms
+    
     Args:
         time_horizon_minutes: Time window (30, 60, 120, 720, 1440)
-        model_type: Model type (LIM, LTM, SIR, SIS)
-        region: Singapore region filter (North, South, East, West, Central, or None for all)
-        model_type: Model type (LIM, LTM, SIR, SIS)
-
+        model_type: Model type (LIM, LTM, SIR, or SIS)
+        region: Singapore region filter
+    
     Returns:
         List of predictions with congestion probabilities
     """
     predictions = []
-
-    # Base congestion probability varies by time horizon
-    base_probability_map = {
-        30: 0.25,    # 30 minutes - lower probability
-        60: 0.35,    # 1 hour - moderate probability
-        120: 0.45,   # 2 hours - higher probability
-        720: 0.55,   # 12 hours (half day) - significant probability
-        1440: 0.65   # 24 hours (full day) - high probability
-    }
-
-    base_prob = base_probability_map.get(time_horizon_minutes, 0.30)
-
-    # Model type affects prediction patterns
-    model_multipliers = {
-        'LIM': 1.0,    # Linear Independent Cascade - baseline
-        'LTM': 0.9,    # Linear Threshold Model - slightly lower
-        'SIR': 1.1,    # Susceptible-Infected-Recovered - slightly higher
-        'SIS': 1.15    # Susceptible-Infected-Susceptible - highest spread
-    }
-
-    multiplier = model_multipliers.get(model_type, 1.0)
-
-    # Generate predictions for each road
-    filtered_roads = []
-    for road in SINGAPORE_ROADS:
-        # Filter by region if specified
+    
+    # Build road network graph
+    network = build_road_network()
+    
+    # Identify initially jammed roads
+    initial_jammed = identify_initial_jammed_roads(region)
+    
+    if not initial_jammed:
+        logger.warning(f"No initial jammed roads found for region: {region}")
+        return []
+    
+    # Convert time horizon to simulation steps (each step = 5 minutes)
+    time_steps = time_horizon_minutes // 5
+    
+    # Run the selected algorithm
+    if model_type == 'LIM':
+        # LIM: Higher base infection probability for independent cascade
+        base_prob = 0.35 if time_horizon_minutes <= 60 else 0.45
+        jam_probabilities = run_lim_model(network, initial_jammed, time_steps, base_prob)
+    
+    elif model_type == 'LTM':
+        # LTM: Threshold-based activation (more conservative)
+        base_threshold = 0.35 if time_horizon_minutes <= 60 else 0.30
+        jam_probabilities = run_ltm_model(network, initial_jammed, time_steps, base_threshold)
+    
+    elif model_type == 'SIR':
+        # SIR: Epidemic with recovery (moderate spread)
+        beta = 0.4 if time_horizon_minutes <= 60 else 0.5
+        gamma = 0.15  # Recovery rate
+        jam_probabilities = run_sir_model(network, initial_jammed, time_steps, beta, gamma)
+    
+    elif model_type == 'SIS':
+        # SIS: Epidemic with reinfection (persistent congestion)
+        beta = 0.35 if time_horizon_minutes <= 60 else 0.45
+        gamma = 0.12  # Lower recovery rate (more persistent)
+        jam_probabilities = run_sis_model(network, initial_jammed, time_steps, beta, gamma)
+    
+    else:
+        logger.error(f"Unknown model type: {model_type}")
+        return []
+    
+    logger.info(f"Running {model_type} model with {len(initial_jammed)} initial jams over {time_steps} steps")
+    
+    # Generate predictions for roads in the region
+    for idx, road in enumerate(SINGAPORE_ROADS):
+        # Filter by region
         if region and not is_in_region(road['lat'], road['lon'], region):
             continue
-        filtered_roads.append(road)
-    
-    logger.info(f"Generating predictions for {len(filtered_roads)} roads in region: {region}")
-    
-    for road in filtered_roads:
-            
-        # Expressways typically have higher congestion
-        type_factor = 1.3 if road['type'] == 'expressway' else 1.0
-
-        # Add randomness for realism
-        random_factor = random.uniform(0.7, 1.3)
-
-        # Calculate jam probability
-        jam_probability = min(0.95, base_prob * multiplier * type_factor * random_factor)
-
-        # Calculate expected congestion duration
-        duration = int(time_horizon_minutes * jam_probability * random.uniform(0.5, 0.9))
-
-        # Calculate affected vehicles estimate
-        base_vehicles = random.randint(50, 200) if road['type'] == 'major' else random.randint(200, 800)
-        affected_vehicles = int(base_vehicles * jam_probability)
-
-        # Calculate average speed (lower speed = more congestion)
-        normal_speed = 60 if road['type'] == 'expressway' else 40
-        predicted_speed = int(normal_speed * (1 - jam_probability * 0.7))
+        jam_probability = jam_probabilities.get(idx, 0.0)
         
-        # Create a simple LineString geometry for the road segment
-        # For demo purposes, create a small road segment around the center point
+        # Skip roads with very low probability (< 5%)
+        if jam_probability < 0.05:
+            continue
+        
+        # Calculate derived metrics based on jam probability
+        duration = int(time_horizon_minutes * jam_probability * random.uniform(0.6, 0.9))
+        
+        # Estimate affected vehicles
+        base_vehicles = random.randint(200, 800) if road['type'] == 'expressway' else random.randint(50, 200)
+        affected_vehicles = int(base_vehicles * jam_probability)
+        
+        # Calculate predicted speed
+        normal_speed = 60 if road['type'] == 'expressway' else 40
+        predicted_speed = int(normal_speed * (1 - jam_probability * 0.8))
+        
+        # Create road geometry
         lat = road['lat']
         lon = road['lon']
-        # Create a road segment approximately 1km long in a random direction
-        offset = 0.005  # Approximately 0.5km at Singapore's latitude
+        offset = 0.005
         angle = random.uniform(0, 360)
-        import math
         angle_rad = math.radians(angle)
         lon_start = lon - offset * math.cos(angle_rad)
         lat_start = lat - offset * math.sin(angle_rad)
         lon_end = lon + offset * math.cos(angle_rad)
         lat_end = lat + offset * math.sin(angle_rad)
         
-        # If region filter is active, ensure segment endpoints stay within bounds
-        if region:
-            region_bounds = SINGAPORE_REGIONS.get(region)
-            if region_bounds:
-                # Clamp the start point to region bounds
-                lat_start = max(region_bounds['lat_min'], min(region_bounds['lat_max'], lat_start))
-                lon_start = max(region_bounds['lon_min'], min(region_bounds['lon_max'], lon_start))
-                # Clamp the end point to region bounds
-                lat_end = max(region_bounds['lat_min'], min(region_bounds['lat_max'], lat_end))
-                lon_end = max(region_bounds['lon_min'], min(region_bounds['lon_max'], lon_end))
-
+        # Clamp to region bounds if filtering
+        if region and region in SINGAPORE_REGIONS:
+            bounds = SINGAPORE_REGIONS[region]
+            lat_start = max(bounds['lat_min'], min(bounds['lat_max'], lat_start))
+            lon_start = max(bounds['lon_min'], min(bounds['lon_max'], lon_start))
+            lat_end = max(bounds['lat_min'], min(bounds['lat_max'], lat_end))
+            lon_end = max(bounds['lon_min'], min(bounds['lon_max'], lon_end))
+        
         predictions.append({
             'road_id': road['id'],
             'road_name': road['name'],
@@ -193,20 +484,17 @@ def generate_fake_historical_data(time_horizon_minutes, model_type='LIM', region
                 'type': 'LineString',
                 'coordinates': [[lon_start, lat_start], [lon_end, lat_end]]
             },
-            'jam_probability': round(jam_probability, 3),
-            'confidence': round(random.uniform(0.75, 0.95), 2),
+            'jam_probability': round(float(jam_probability), 3),
+            'confidence': round(random.uniform(0.80, 0.95), 2),
             'time_horizon_minutes': time_horizon_minutes,
             'predicted_duration_minutes': duration,
             'affected_vehicles_estimate': affected_vehicles,
-            'current_speed_kmh': random.randint(20, normal_speed),
             'predicted_speed_kmh': predicted_speed,
-            'congestion_level': get_congestion_level(jam_probability),
-            'timestamp': datetime.now().isoformat()
+            'congestion_level': 'High' if jam_probability >= 0.7 else 'Medium' if jam_probability >= 0.3 else 'Low',
+            'model_used': model_type
         })
-
-    # Sort by jam probability (highest first)
-    predictions.sort(key=lambda x: x['jam_probability'], reverse=True)
-
+    
+    logger.info(f"Generated {len(predictions)} predictions using {model_type} model")
     return predictions
 
 
@@ -502,14 +790,37 @@ def predict_jam():
                 'error': f'Invalid time horizon. Must be one of: {valid_horizons}'
             }), 400
 
-        # Validate model type
+        # Validate model type (now all 4 algorithms)
         valid_models = ['LIM', 'LTM', 'SIR', 'SIS']
         if model_type not in valid_models:
             return jsonify({
                 'success': False,
                 'error': f'Invalid model type. Must be one of: {valid_models}'
             }), 400
-
+        
+        # Check if algorithm is active in the database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT is_active, name 
+            FROM algorithms 
+            WHERE name = %s
+        """, (model_type,))
+        
+        algorithm_result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if algorithm_result:
+            is_active = algorithm_result[0]
+            algo_name = algorithm_result[1]
+            if not is_active:
+                return jsonify({
+                    'success': False,
+                    'error': f'Algorithm "{algo_name}" ({model_type}) is currently suspended and cannot be used for predictions.'
+                }), 403
+        # If algorithm not found in DB, allow it (for backward compatibility)
         logger.info(f"Running jam prediction: horizon={time_horizon}min, model={model_type}, region={region}")
 
         # Generate predictions (use demo data for now, can be enhanced with real-time later)

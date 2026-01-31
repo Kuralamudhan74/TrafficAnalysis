@@ -174,7 +174,8 @@ class ApiService {
    * Create a new upload session
    */
   static async createUploadSession() {
-    return this.makeRequest('/upload/create-session', {
+    const token = localStorage.getItem('auth_token')
+    return this.authenticatedRequest('/upload/create-session', token, {
       method: 'POST'
     })
   }
@@ -183,12 +184,16 @@ class ApiService {
    * Upload road network GeoJSON file
    */
   static async uploadRoadNetwork(sessionId, file) {
+    const token = localStorage.getItem('auth_token')
     const formData = new FormData()
     formData.append('file', file)
     formData.append('session_id', sessionId)
 
     return fetch(`${API_BASE_URL}/upload/road-network`, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
       body: formData
     }).then(response => response.json())
   }
@@ -197,12 +202,16 @@ class ApiService {
    * Upload GPS trajectories CSV file
    */
   static async uploadGpsTrajectories(sessionId, file) {
+    const token = localStorage.getItem('auth_token')
     const formData = new FormData()
     formData.append('file', file)
     formData.append('session_id', sessionId)
 
     return fetch(`${API_BASE_URL}/upload/gps-trajectories`, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
       body: formData
     }).then(response => response.json())
   }
@@ -211,7 +220,8 @@ class ApiService {
    * Trigger data preprocessing
    */
   static async preprocessData(sessionId) {
-    return this.makeRequest('/upload/preprocess', {
+    const token = localStorage.getItem('auth_token')
+    return this.authenticatedRequest('/upload/preprocess', token, {
       method: 'POST',
       body: JSON.stringify({ session_id: sessionId })
     })
@@ -240,14 +250,14 @@ class ApiService {
   /**
    * Run bottleneck analysis model
    */
-  static async runBottleneckModel(sessionId, k, timeHorizon) {
+  static async runBottleneckModel(sessionId, k, timeHorizon, modelType = 'LIM') {
     return this.makeRequest('/bottlenecks/run-model', {
       method: 'POST',
       body: JSON.stringify({
         session_id: sessionId,
         k: k,
         time_horizon: timeHorizon,
-        model_type: 'LIM'
+        model_type: modelType
       })
     })
   }

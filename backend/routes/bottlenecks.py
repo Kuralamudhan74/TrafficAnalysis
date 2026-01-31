@@ -75,6 +75,26 @@ def run_model():
                 'error': f'Session is not ready. Current status: {status}'
             }), 400
 
+        # Check if the selected algorithm is active
+        cursor.execute("""
+            SELECT is_active, name 
+            FROM algorithms 
+            WHERE model_type = %s
+        """, (model_type,))
+        
+        algorithm_result = cursor.fetchone()
+        
+        if algorithm_result:
+            is_active = algorithm_result[0]
+            algo_name = algorithm_result[1]
+            if not is_active:
+                cursor.close()
+                conn.close()
+                return jsonify({
+                    'success': False,
+                    'error': f'Algorithm "{algo_name}" ({model_type}) is currently suspended and cannot be used.'
+                }), 403
+
         cursor.close()
         conn.close()
 

@@ -15,6 +15,36 @@ const JamPrediction = () => {
   const [mapCenter, setMapCenter] = useState([1.3521, 103.8198]) // Singapore
   const [mapZoom, setMapZoom] = useState(12)
   const [statistics, setStatistics] = useState(null)
+  const [activeAlgorithms, setActiveAlgorithms] = useState([])
+  const [loadingAlgorithms, setLoadingAlgorithms] = useState(true)
+
+  // Fetch active algorithms on mount
+  useEffect(() => {
+    const fetchActiveAlgorithms = async () => {
+      try {
+        const response = await ApiService.get('/algorithms/active')
+        if (response.success && response.algorithms) {
+          // Filter to exclude Greedy Bottleneck Finder (only show spread models)
+          const spreadModels = response.algorithms.filter(algo => algo.name !== 'GREEDY')
+          setActiveAlgorithms(spreadModels)
+          // Set default model to first active algorithm if current is not active
+          if (spreadModels.length > 0) {
+            const currentIsActive = spreadModels.some(a => a.name === modelType)
+            if (!currentIsActive) {
+              setModelType(spreadModels[0].name)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching active algorithms:', error)
+        toast.error('Failed to load active algorithms')
+      } finally {
+        setLoadingAlgorithms(false)
+      }
+    }
+
+    fetchActiveAlgorithms()
+  }, [])
 
   // Load predictions on mount
   useEffect(() => {
@@ -98,9 +128,6 @@ const JamPrediction = () => {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Jam Spread Prediction
             </h2>
-            <p className="text-gray-600">
-              Predict how traffic jams will spread over time using the LIM model
-            </p>
           </div>
         </div>
       </Card>
@@ -138,16 +165,29 @@ const JamPrediction = () => {
                 value={modelType}
                 onChange={(e) => setModelType(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={loadingAlgorithms || activeAlgorithms.length === 0}
               >
-                <option value="LIM">LIM (Linear Independent Cascade)</option>
-                <option value="LTM">LTM (Linear Threshold Model)</option>
-                <option value="SIR">SIR (Susceptible-Infected-Recovered)</option>
-                <option value="SIS">SIS (Susceptible-Infected-Susceptible)</option>
+                {loadingAlgorithms ? (
+                  <option>Loading algorithms...</option>
+                ) : activeAlgorithms.length === 0 ? (
+                  <option>No active algorithms available</option>
+                ) : (
+                  activeAlgorithms.map((algo) => (
+                    <option key={algo.id} value={algo.name}>
+                      {algo.display_name}
+                    </option>
+                  ))
+                )}
               </select>
+              {!loadingAlgorithms && activeAlgorithms.length === 0 && (
+                <p className="text-sm text-red-600 mt-1">
+                  No algorithms are currently active. Please activate algorithms in the management page.
+                </p>
+              )}
             </div>
           </div>
 
-          <Button onClick={handleRunPrediction} disabled={loading} className="w-full">
+          <Button onClick={handleRunPrediction} disabled={loading || loadingAlgorithms || activeAlgorithms.length === 0} className="w-full">
             {loading ? 'Running Prediction...' : 'Run Prediction'}
           </Button>
         </div>
