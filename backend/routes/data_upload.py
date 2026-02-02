@@ -529,3 +529,160 @@ def get_upload_status():
             cursor.close()
         if conn:
             conn.close()
+
+
+@data_upload_bp.route('/active-session-info', methods=['GET'])
+def get_active_session_info():
+    """Get information about the active session including whether it's pre-inserted data"""
+    conn = None
+    cursor = None
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get active session
+        cursor.execute("""
+            SELECT 
+                session_id,
+                status,
+                roads_file,
+                gps_file,
+                road_count,
+                gps_point_count
+            FROM upload_sessions
+            WHERE is_active = TRUE
+            ORDER BY created_at DESC
+            LIMIT 1
+        """)
+
+        session = cursor.fetchone()
+
+        if not session:
+            cursor.close()
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': 'No active session found'
+            }), 404
+
+        session_id = str(session[0])
+        status = session[1]
+        roads_file = session[2]
+        gps_file = session[3]
+        road_count = session[4]
+        gps_count = session[5]
+
+        # Check if this is the pre-inserted session
+        # Pre-inserted sessions either have session_id = 'sample' or have NULL file paths
+        is_preinserted = (session_id == 'sample' or (roads_file is None and gps_file is None))
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'status': status,
+            'is_preinserted': is_preinserted,
+            'road_count': road_count or 0,
+            'gps_count': gps_count or 0
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting active session info: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get active session info: {str(e)}'
+        }), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@data_upload_bp.route('/restore-preinserted', methods=['POST'])
+@permission_required('upload_traffic_data')
+def restore_preinserted_data(current_user):
+    """Restore the pre-inserted (sample) data session as active"""
+    conn = None
+    cursor = None
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Find the pre-inserted session (the one with session_id = 'sample' or the oldest one)
+        cursor.execute("""
+            SELECT session_id, status
+            FROM upload_sessions
+            WHERE session_id = 'sample'
+               OR (roads_file IS NULL AND gps_file IS NULL AND status = 'ready')
+            ORDER BY created_at ASC
+            LIMIT 1
+        """)
+
+        preinserted_session = cursor.fetchone()
+
+        if not preinserted_session:
+            cursor.close()
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': 'No pre-inserted data session found'
+            }), 404
+
+        preinserted_session_id = preinserted_session[0]
+        session_status = preinserted_session[1]
+
+        if session_status != 'ready':
+            cursor.close()
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': f'Pre-inserted session is not ready. Current status: {session_status}'
+            }), 400
+
+        # Set all sessions to inactive
+        cursor.execute("""
+            UPDATE upload_sessions
+            SET is_active = FALSE
+            WHERE is_active = TRUE
+        """)
+
+        # Set the pre-inserted session as active
+        cursor.execute("""
+            UPDATE upload_sessions
+            SET is_active = TRUE
+            WHERE session_id = %s
+        """, (preinserted_session_id,))
+
+        conn.commit()
+
+        logger.info(f"Pre-inserted data session {preinserted_session_id} restored as active")
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': 'Pre-inserted data restored successfully',
+            'session_id': preinserted_session_id
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error restoring pre-inserted data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to restore pre-inserted data: {str(e)}'
+        }), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
