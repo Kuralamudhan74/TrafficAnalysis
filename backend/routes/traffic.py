@@ -20,13 +20,13 @@ lta_bp = Blueprint('lta_traffic', __name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Singapore region boundaries (lat/lon)
+# Singapore region boundaries (lat/lon) - Subdividing the route-dense area
 SINGAPORE_REGIONS = {
-    'North': {'lat_min': 1.40, 'lat_max': 1.47, 'lon_min': 103.75, 'lon_max': 103.90},
-    'South': {'lat_min': 1.26, 'lat_max': 1.32, 'lon_min': 103.78, 'lon_max': 103.88},
-    'East': {'lat_min': 1.30, 'lat_max': 1.40, 'lon_min': 103.90, 'lon_max': 104.05},
-    'West': {'lat_min': 1.28, 'lat_max': 1.42, 'lon_min': 103.60, 'lon_max': 103.75},
-    'Central': {'lat_min': 1.28, 'lat_max': 1.38, 'lon_min': 103.80, 'lon_max': 103.90}
+    'North': {'lat_min': 1.32, 'lat_max': 1.36, 'lon_min': 103.82, 'lon_max': 103.88},
+    'Central': {'lat_min': 1.29, 'lat_max': 1.32, 'lon_min': 103.84, 'lon_max': 103.88},
+    'South': {'lat_min': 1.27, 'lat_max': 1.29, 'lon_min': 103.83, 'lon_max': 103.87},
+    'East': {'lat_min': 1.29, 'lat_max': 1.34, 'lon_min': 103.88, 'lon_max': 103.90},
+    'West': {'lat_min': 1.30, 'lat_max': 1.33, 'lon_min': 103.82, 'lon_max': 103.84}
 }
 
 

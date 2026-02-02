@@ -21,6 +21,9 @@ const DataUpload = () => {
   const [isProcessing, setIsProcessing] = useState(false)
   const [k, setK] = useState(10)
   const [timeHorizon, setTimeHorizon] = useState(30)
+  const [modelType, setModelType] = useState('LIM')
+  const [activeAlgorithms, setActiveAlgorithms] = useState([])
+  const [loadingAlgorithms, setLoadingAlgorithms] = useState(true)
 
   // Refs for file inputs
   const roadNetworkInputRef = useRef(null)
@@ -36,6 +39,36 @@ const DataUpload = () => {
         clearInterval(pollingInterval.current)
       }
     }
+  }, [])
+
+  // Fetch active algorithms on mount
+  useEffect(() => {
+    const fetchActiveAlgorithms = async () => {
+      try {
+        const response = await ApiService.get('/algorithms/active')
+        if (response.success && response.algorithms) {
+          // Filter to show only GREEDY algorithm for bottleneck analysis, or spread models as fallback
+          const relevantAlgorithms = response.algorithms.filter(algo => 
+            algo.model_type === 'GREEDY' || algo.model_type !== 'GREEDY'
+          )
+          setActiveAlgorithms(relevantAlgorithms)
+          // Set default model to first active algorithm if available
+          if (relevantAlgorithms.length > 0) {
+            const currentIsActive = relevantAlgorithms.some(a => a.model_type === modelType)
+            if (!currentIsActive) {
+              setModelType(relevantAlgorithms[0].model_type)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching active algorithms:', error)
+        toast.error('Failed to load active algorithms')
+      } finally {
+        setLoadingAlgorithms(false)
+      }
+    }
+
+    fetchActiveAlgorithms()
   }, [])
 
   // File selection handlers
@@ -218,7 +251,7 @@ const DataUpload = () => {
 
     try {
       toast.info('Running bottleneck analysis model...')
-      const response = await ApiService.runBottleneckModel(sessionId, k, timeHorizon)
+      const response = await ApiService.runBottleneckModel(sessionId, k, timeHorizon, modelType)
 
       if (!response.success) {
         throw new Error(response.error || 'Model run failed')
@@ -227,7 +260,7 @@ const DataUpload = () => {
       toast.success('Model completed successfully!')
 
       // Navigate to bottlenecks page with results
-      navigate(`${basePath}/bottlenecks?sessionId=${sessionId}&k=${k}&horizon=${timeHorizon}`)
+      navigate(`${basePath}/bottlenecks?sessionId=${sessionId}&k=${k}&horizon=${timeHorizon}&model=${modelType}`)
 
     } catch (error) {
       console.error('Model error:', error)
@@ -406,7 +439,7 @@ const DataUpload = () => {
             <h3 className="text-xl font-semibold text-gray-900">3. Run Bottleneck Analysis</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* K Slider */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -443,11 +476,41 @@ const DataUpload = () => {
                 <option value={30}>30 minutes</option>
               </select>
             </div>
+
+            {/* Model Type Dropdown */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Model Type
+              </label>
+              <select
+                value={modelType}
+                onChange={(e) => setModelType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={sessionStatus !== 'ready' || loadingAlgorithms || activeAlgorithms.length === 0}
+              >
+                {loadingAlgorithms ? (
+                  <option>Loading...</option>
+                ) : activeAlgorithms.length === 0 ? (
+                  <option>No active algorithms</option>
+                ) : (
+                  activeAlgorithms.map((algo) => (
+                    <option key={algo.id} value={algo.model_type}>
+                      {algo.display_name}
+                    </option>
+                  ))
+                )}
+              </select>
+              {!loadingAlgorithms && activeAlgorithms.length === 0 && (
+                <p className="text-xs text-red-600 mt-1">
+                  No active algorithms available
+                </p>
+              )}
+            </div>
           </div>
 
           <Button
             onClick={handleRunModel}
-            disabled={sessionStatus !== 'ready' || isProcessing}
+            disabled={sessionStatus !== 'ready' || isProcessing || loadingAlgorithms || activeAlgorithms.length === 0}
             className="w-full"
           >
             {isProcessing && sessionStatus === 'ready' ? 'Running Model...' : 'Run Model'}
@@ -456,6 +519,11 @@ const DataUpload = () => {
           {sessionStatus !== 'ready' && (
             <p className="text-sm text-gray-500 text-center">
               Complete preprocessing before running the model
+            </p>
+          )}
+          {sessionStatus === 'ready' && activeAlgorithms.length === 0 && (
+            <p className="text-sm text-red-600 text-center">
+              No active algorithms available. Please activate algorithms in the management page.
             </p>
           )}
         </div>

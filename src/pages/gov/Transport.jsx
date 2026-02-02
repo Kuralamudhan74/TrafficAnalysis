@@ -347,15 +347,6 @@ const GovTransport = () => {
               />
               <span className="text-sm">Traffic Congestion</span>
             </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showBusStops}
-                onChange={(e) => setShowBusStops(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm">Show Bus Stops</span>
-            </label>
           </div>
         </div>
       </Card>
