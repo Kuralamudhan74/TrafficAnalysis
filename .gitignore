@@ -26,3 +26,7 @@ dist-ssr
 # Ignore Python cache
 *.pyc
 __pycache__/
+
+.env
+backend/.env
+
