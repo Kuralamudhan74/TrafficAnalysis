@@ -237,6 +237,25 @@ class ApiService {
   }
 
   /**
+   * Get active session information
+   */
+  static async getActiveSessionInfo() {
+    return this.makeRequest('/upload/active-session-info', {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * Restore pre-inserted (sample) data session
+   */
+  static async restorePreinsertedData() {
+    const token = localStorage.getItem('auth_token')
+    return this.authenticatedRequest('/upload/restore-preinserted', token, {
+      method: 'POST'
+    })
+  }
+
+  /**
    * Get upload status (legacy)
    */
   static async getUploadStatus() {

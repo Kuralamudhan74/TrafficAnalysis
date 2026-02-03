@@ -391,9 +391,12 @@ const TrafficMap = () => {
     }
   };
 
-  // Fetch active EMAS incidents
+  // Fetch active EMAS incidents (only for government and developer roles)
   const fetchActiveIncidents = async () => {
-    if (!isAuthenticated || !token) return;
+    if (!isAuthenticated || !token || !user) return;
+    
+    // Only government and developer can access EMAS incidents
+    if (user.role !== 'government' && user.role !== 'developer') return;
 
     try {
       const response = await ApiService.getEmasIncidents(token, 'all');
@@ -581,8 +584,8 @@ const TrafficMap = () => {
 
   return (
     <div className="flex-1 flex bg-gray-50 h-[calc(100vh-64px)]">
-      {/* Active Incidents Sidebar */}
-      {isAuthenticated && showActiveIncidents && (
+      {/* Active Incidents Sidebar - Only for government and developer */}
+      {isAuthenticated && user && (user.role === 'government' || user.role === 'developer') && showActiveIncidents && (
         <div className="w-80 flex-shrink-0 bg-white border-r overflow-y-auto">
           <div className="p-4 border-b">
             <div className="flex justify-between items-center mb-2">
@@ -763,8 +766,8 @@ const TrafficMap = () => {
                 </button>
               )}
 
-              {/* Active Incidents Button */}
-              {isAuthenticated && (
+              {/* Active Incidents Button - Only for government and developer */}
+              {isAuthenticated && user && (user.role === 'government' || user.role === 'developer') && (
                 <button
                   onClick={() => setShowActiveIncidents(!showActiveIncidents)}
                   className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm flex items-center gap-2"

@@ -38,19 +38,35 @@ const Bottlenecks = () => {
   const [mapZoom, setMapZoom] = useState(12)
   const [showFlows, setShowFlows] = useState(true)
   const [highlightedBottleneck, setHighlightedBottleneck] = useState(null)
+  const [isRestoringData, setIsRestoringData] = useState(false)
+  const [isPreinsertedData, setIsPreinsertedData] = useState(true)
 
   // Parameters from URL or defaults
   const sessionId = searchParams.get('sessionId')
   const k = parseInt(searchParams.get('k')) || 10
   const horizon = parseInt(searchParams.get('horizon')) || 30
 
+  // Check active session info
+  const checkActiveSession = async () => {
+    try {
+      const response = await ApiService.getActiveSessionInfo()
+      if (response.success) {
+        setIsPreinsertedData(response.is_preinserted)
+      }
+    } catch (error) {
+      console.error('Error checking active session:', error)
+      // Default to showing as preinserted if check fails
+      setIsPreinsertedData(true)
+    }
+  }
+
   // Load bottlenecks on mount or when params change
   useEffect(() => {
-    if (sessionId) {
-      loadBottlenecks()
-      loadInfluenceFlows()
-    }
-  }, [sessionId, k, horizon])
+    // Auto-load bottlenecks using sample data
+    checkActiveSession()
+    loadBottlenecks()
+    loadInfluenceFlows()
+  }, [k, horizon])
 
   // Load bottlenecks from API
   const loadBottlenecks = async () => {
@@ -193,6 +209,33 @@ const Bottlenecks = () => {
     navigate(`${basePath}/data-upload`)
   }
 
+  // Restore pre-inserted data
+  const handleRestorePreinsertedData = async () => {
+    setIsRestoringData(true)
+
+    try {
+      toast.info('Restoring pre-inserted data...')
+      const response = await ApiService.restorePreinsertedData()
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to restore pre-inserted data')
+      }
+
+      toast.success('Pre-inserted data restored successfully')
+
+      // Check session info and reload bottlenecks with the restored data
+      await checkActiveSession()
+      await loadBottlenecks()
+      await loadInfluenceFlows()
+
+    } catch (error) {
+      console.error('Error restoring pre-inserted data:', error)
+      toast.error(error.message || 'Failed to restore pre-inserted data')
+    } finally {
+      setIsRestoringData(false)
+    }
+  }
+
   // Filter flows to show only those from highlighted bottleneck or all
   const visibleFlows = highlightedBottleneck
     ? influenceFlows.filter(f => f.bottleneck_id === highlightedBottleneck)
@@ -214,11 +257,6 @@ const Bottlenecks = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {sessionId && (
-              <Button variant="secondary" onClick={goToUpload}>
-                Back to Upload
-              </Button>
-            )}
             <Button
               variant={showFlows ? 'primary' : 'secondary'}
               onClick={() => setShowFlows(!showFlows)}
@@ -235,6 +273,18 @@ const Bottlenecks = () => {
             )}
             <Button onClick={handleRecalculate} disabled={loading}>
               Recalculate
+            </Button>
+            {!isPreinsertedData && (
+              <Button 
+                variant="secondary" 
+                onClick={handleRestorePreinsertedData}
+                disabled={isRestoringData || loading}
+              >
+                Restore Pre-inserted Data
+              </Button>
+            )}
+            <Button variant="secondary" onClick={goToUpload}>
+              Upload Data
             </Button>
           </div>
         </div>
@@ -399,7 +449,7 @@ const Bottlenecks = () => {
           ) : (
             <div className="flex flex-col items-center justify-center h-96 text-gray-500">
               <p className="mb-4">No bottlenecks to display</p>
-              <Button onClick={goToUpload}>Upload Data</Button>
+              <p className="text-sm">Click "Upload Data" to load custom road network and GPS trajectory files</p>
             </div>
           )}
         </div>
