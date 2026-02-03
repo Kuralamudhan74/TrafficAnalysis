@@ -12,7 +12,7 @@ emas_bp = Blueprint('emas', __name__)
 
 
 @emas_bp.route('/emas/incidents', methods=['GET'])
-@token_required(allowed_roles=['government', 'developer'])
+@token_required(allowed_roles=['government', 'developer', 'analyst'])
 def get_emas_incidents(current_user):
     """Get all EMAS incidents"""
     try:

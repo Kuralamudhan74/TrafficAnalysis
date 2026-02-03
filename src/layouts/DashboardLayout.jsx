@@ -110,7 +110,7 @@ const DashboardLayout = () => {
           { path: '/gov/trends', label: 'View Historical Trends', icon: FiBarChart2 },
           // { path: '/gov/simulation', label: 'Event Simulation', icon: FiZap }, // Hidden - not working
           { path: '/gov/weather', label: 'Weather Overlay', icon: FiCloud },
-          { path: '/gov/transport', label: 'Public Transport Overlay', icon: FiNavigation },
+          // { path: '/gov/transport', label: 'Public Transport Overlay', icon: FiNavigation }, // Hidden per user request
           // { path: '/gov/alerts', label: 'Critical Alerts', icon: FiAlertCircle }, // Hidden per user request
           { path: '/gov/manage-users', label: 'Manage User Accounts', icon: FiUsers },
         ]
