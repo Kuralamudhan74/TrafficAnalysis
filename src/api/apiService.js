@@ -3,7 +3,8 @@
  * Handles all API calls to the Flask backend
  */
 
-const API_BASE_URL = 'https://trafficanalysis.onrender.com/api'|| 'http://localhost:5000/api'
+// Use environment variable or default to production
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://trafficanalysis.onrender.com/api'
 
 class ApiService {
   /**
