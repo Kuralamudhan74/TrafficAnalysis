@@ -3,7 +3,7 @@
  * Handles all API calls to the Flask backend
  */
 
-const API_BASE_URL = 'http://localhost:5000/api'
+const API_BASE_URL = 'https://trafficanalysis.onrender.com/api'|| 'http://localhost:5000/api'
 
 class ApiService {
   /**
