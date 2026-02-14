@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import ApiService from '../../api/apiService'
 import Card from '../../components/Card'
 import Badge from '../../components/Badge'
@@ -10,6 +11,7 @@ import { toast, ToastContainer } from '../../components/Toast'
 import { FiMessageSquare, FiClock, FiCheckCircle, FiTrash2 } from 'react-icons/fi'
 
 const MyFeedback = () => {
+  const { user } = useAuth()
   const [feedback, setFeedback] = useState([])
   const [loading, setLoading] = useState(true)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -164,25 +166,29 @@ const MyFeedback = () => {
                     )}
                     <p className="text-sm text-gray-500 flex items-center gap-1">
                       <FiClock className="w-4 h-4" />
-                      Submitted: {formatDate(item.created_at)}
+                      {user?.id === item.user_id ? 'Submitted' : 'Announced'}: {formatDate(item.created_at)}
                     </p>
                   </div>
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="group relative p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 hover:shadow-md"
-                    title="Delete feedback"
-                  >
-                    <FiTrash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    <span className="absolute -bottom-8 right-0 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      Delete
-                    </span>
-                  </button>
+                  {/* Delete Button - Only for user's own feedback */}
+                  {user?.id === item.user_id && (
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="group relative p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 hover:shadow-md"
+                      title="Delete feedback"
+                    >
+                      <FiTrash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <span className="absolute -bottom-8 right-0 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        Delete
+                      </span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Your Message */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm font-medium text-gray-700 mb-2">Your Message:</div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">
+                    {user?.id === item.user_id ? 'Your Feedback:' : (item.is_broadcast ? 'System Announcement Message:' : 'Feedback:')}
+                  </div>
                   <p className="text-gray-900">{item.message}</p>
                 </div>
 
@@ -225,7 +231,7 @@ const MyFeedback = () => {
                 )}
 
                 {/* Waiting Message */}
-                {!item.admin_response && item.status === 'pending' && (
+                {user?.id === item.user_id && !item.admin_response && item.status === 'pending' && (
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <p className="text-sm text-gray-600">
                       ⏳ Your feedback is pending review. We'll respond soon!
@@ -233,7 +239,7 @@ const MyFeedback = () => {
                   </div>
                 )}
                 
-                {!item.admin_response && item.status === 'in_review' && (
+                {user?.id === item.user_id && !item.admin_response && item.status === 'in_review' && (
                   <div className="bg-blue-50 rounded-lg p-3 text-center">
                     <p className="text-sm text-blue-700">
                       👀 Your feedback is currently being reviewed by our team

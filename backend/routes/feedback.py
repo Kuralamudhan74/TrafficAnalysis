@@ -596,14 +596,14 @@ def get_statuses():
 @feedback_bp.route('/my-feedback', methods=['GET'])
 @permission_required('view_own_feedback')
 def get_my_feedback(current_user):
-    """Get current user's feedback submissions with responses"""
+    """Get current user's feedback submissions with responses AND all broadcasts"""
     try:
         user = current_user
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Get user's feedback with response information
+        # Get user's feedback with response information UNION ALL broadcast messages
         cursor.execute("""
             SELECT 
                 f.id,
@@ -618,12 +618,36 @@ def get_my_feedback(current_user):
                 u.email as responded_by_email,
                 f.is_broadcast,
                 f.broadcast_message,
-                f.broadcast_at
+                f.broadcast_at,
+                f.user_id,
+                u2.email as user_email
             FROM feedback f
             LEFT JOIN users u ON f.responded_by = u.id
+            LEFT JOIN users u2 ON f.user_id = u2.id
             WHERE f.user_id = %s
-            ORDER BY f.created_at DESC
-        """, (user.get('id'),))
+            UNION ALL
+            SELECT 
+                f.id,
+                f.category,
+                f.subject,
+                f.message,
+                f.rating,
+                f.status,
+                f.created_at,
+                f.admin_response,
+                f.responded_at,
+                u.email as responded_by_email,
+                f.is_broadcast,
+                f.broadcast_message,
+                f.broadcast_at,
+                f.user_id,
+                u2.email as user_email
+            FROM feedback f
+            LEFT JOIN users u ON f.responded_by = u.id
+            LEFT JOIN users u2 ON f.user_id = u2.id
+            WHERE f.is_broadcast = TRUE AND f.user_id != %s
+            ORDER BY created_at DESC
+        """, (user.get('id'), user.get('id')))
         
         columns = [desc[0] for desc in cursor.description]
         feedback_list = []
