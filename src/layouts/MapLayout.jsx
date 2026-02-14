@@ -106,7 +106,7 @@ const MapLayout = () => {
           { path: '/gov/jam-prediction', label: 'Jam Prediction', icon: FiNavigation },
           { path: '/gov/trends', label: 'View Historical Trends', icon: FiBarChart2 },
           { path: '/gov/weather', label: 'Weather Overlay', icon: FiCloud },
-          { path: '/gov/transport', label: 'Public Transport Overlay', icon: FiNavigation },
+          // { path: '/gov/transport', label: 'Public Transport Overlay', icon: FiNavigation }, // Hidden per user request
           { path: '/gov/manage-users', label: 'Manage User Accounts', icon: FiUsers },
         ]
       case 'developer':
