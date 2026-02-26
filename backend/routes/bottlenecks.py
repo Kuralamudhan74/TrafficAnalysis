@@ -104,30 +104,30 @@ def run_model():
         influence_models = InfluenceModels()
         bottleneck_finder = BottleneckFinder()
 
-        # Check if influence probabilities are learned
+        # Check if influence probabilities are learned for this model
         conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute("""
             SELECT COUNT(*)
             FROM influence_probabilities
-            WHERE session_id = %s
-        """, (session_id,))
+            WHERE session_id = %s AND model_type = %s
+        """, (session_id, model_type))
 
         prob_count = cursor.fetchone()[0]
 
         cursor.close()
         conn.close()
 
-        # Learn influence probabilities if not already done
+        # Learn influence probabilities if not already done for this model
         if prob_count == 0:
-            logger.info(f"Learning influence probabilities for session {session_id}")
+            logger.info(f"Learning influence probabilities for session {session_id} with model {model_type}")
             influence_models.learn_influence_probabilities(
                 session_id,
                 time_horizons=[5, 15, 30],
                 model_type=model_type
             )
-            logger.info(f"Successfully learned influence probabilities")
+            logger.info(f"Successfully learned influence probabilities for {model_type}")
 
         # Find top-K bottlenecks
         logger.info(f"Finding top-{k} bottlenecks")

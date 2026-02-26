@@ -54,9 +54,9 @@ const DataUpload = () => {
           setActiveAlgorithms(relevantAlgorithms)
           // Set default model to first active algorithm if available
           if (relevantAlgorithms.length > 0) {
-            const currentIsActive = relevantAlgorithms.some(a => a.model_type === modelType)
+            const currentIsActive = relevantAlgorithms.some(a => a.name === modelType)
             if (!currentIsActive) {
-              setModelType(relevantAlgorithms[0].model_type)
+              setModelType(relevantAlgorithms[0].name)
             }
           }
         }
@@ -494,7 +494,7 @@ const DataUpload = () => {
                   <option>No active algorithms</option>
                 ) : (
                   activeAlgorithms.map((algo) => (
-                    <option key={algo.id} value={algo.model_type}>
+                    <option key={algo.id} value={algo.name}>
                       {algo.display_name}
                     </option>
                   ))

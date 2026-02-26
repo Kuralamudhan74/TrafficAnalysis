@@ -45,6 +45,7 @@ const Bottlenecks = () => {
   const sessionId = searchParams.get('sessionId')
   const k = parseInt(searchParams.get('k')) || 10
   const horizon = parseInt(searchParams.get('horizon')) || 30
+  const modelType = searchParams.get('model') || 'LIM'
 
   // Check active session info
   const checkActiveSession = async () => {
@@ -66,14 +67,14 @@ const Bottlenecks = () => {
     checkActiveSession()
     loadBottlenecks()
     loadInfluenceFlows()
-  }, [k, horizon])
+  }, [k, horizon, modelType])
 
   // Load bottlenecks from API
   const loadBottlenecks = async () => {
     setLoading(true)
 
     try {
-      const response = await ApiService.getTopBottlenecks(k, horizon, 'LIM', false)
+      const response = await ApiService.getTopBottlenecks(k, horizon, modelType, false)
 
       if (!response.success) {
         throw new Error(response.error || 'Failed to load bottlenecks')
@@ -110,7 +111,7 @@ const Bottlenecks = () => {
 
     try {
       toast.info('Recalculating bottlenecks...')
-      const response = await ApiService.calculateBottlenecks(k, horizon, 'LIM')
+      const response = await ApiService.calculateBottlenecks(k, horizon, modelType)
 
       if (!response.success) {
         throw new Error(response.error || 'Calculation failed')
@@ -141,7 +142,7 @@ const Bottlenecks = () => {
 
     try {
       toast.info('Running what-if analysis...')
-      const response = await ApiService.whatIfAnalysis(selectedBottlenecks, horizon, 'LIM')
+      const response = await ApiService.whatIfAnalysis(selectedBottlenecks, horizon, modelType)
 
       if (!response.success) {
         throw new Error(response.error || 'Analysis failed')

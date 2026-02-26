@@ -546,8 +546,8 @@ def get_active_session_info():
             SELECT 
                 session_id,
                 status,
-                roads_file,
-                gps_file,
+                road_network_filename,
+                gps_trajectories_filename,
                 road_count,
                 gps_point_count
             FROM upload_sessions
@@ -574,8 +574,8 @@ def get_active_session_info():
         gps_count = session[5]
 
         # Check if this is the pre-inserted session
-        # Pre-inserted sessions either have session_id = 'sample' or have NULL file paths
-        is_preinserted = (session_id == 'sample' or (roads_file is None and gps_file is None))
+        # Pre-inserted sessions have NULL file paths (no files uploaded)
+        is_preinserted = (roads_file is None and gps_file is None)
 
         cursor.close()
         conn.close()
@@ -614,12 +614,11 @@ def restore_preinserted_data(current_user):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Find the pre-inserted session (the one with session_id = 'sample' or the oldest one)
+        # Find the pre-inserted session (the one with NULL filenames and ready status)
         cursor.execute("""
             SELECT session_id, status
             FROM upload_sessions
-            WHERE session_id = 'sample'
-               OR (roads_file IS NULL AND gps_file IS NULL AND status = 'ready')
+            WHERE (road_network_filename IS NULL AND gps_trajectories_filename IS NULL AND status = 'ready')
             ORDER BY created_at ASC
             LIMIT 1
         """)

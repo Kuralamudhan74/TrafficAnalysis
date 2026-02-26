@@ -42,11 +42,11 @@ class InfluenceModels:
 
             logger.info(f"Learning influence probabilities for session {session_id}")
 
-            # Clear existing influence probabilities for this session
+            # Clear existing influence probabilities for this session and model type
             cursor.execute("""
                 DELETE FROM influence_probabilities
-                WHERE session_id = %s
-            """, (session_id,))
+                WHERE session_id = %s AND model_type = %s
+            """, (session_id, model_type))
 
             total_learned = 0
 
@@ -124,17 +124,17 @@ class InfluenceModels:
             dict: Prediction results with probabilities for each road
         """
         if model_type == 'LIM':
-            return self._predict_lim(session_id, seed_roads, time_horizon, num_simulations)
+            return self._predict_lim(session_id, seed_roads, time_horizon, model_type, num_simulations)
         elif model_type == 'LTM':
-            return self._predict_ltm(session_id, seed_roads, time_horizon)
+            return self._predict_ltm(session_id, seed_roads, time_horizon, model_type)
         elif model_type == 'SIR':
-            return self._predict_sir(session_id, seed_roads, time_horizon)
+            return self._predict_sir(session_id, seed_roads, time_horizon, model_type)
         elif model_type == 'SIS':
-            return self._predict_sis(session_id, seed_roads, time_horizon)
+            return self._predict_sis(session_id, seed_roads, time_horizon, model_type)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
-    def _predict_lim(self, session_id, seed_roads, time_horizon, num_simulations):
+    def _predict_lim(self, session_id, seed_roads, time_horizon, model_type, num_simulations):
         """
         Linear Independent Cascade Model (LIM)
         Monte Carlo simulation with probabilistic spread
@@ -161,8 +161,8 @@ class InfluenceModels:
                 FROM influence_probabilities
                 WHERE session_id = %s
                   AND time_horizon_minutes = %s
-                  AND model_type = 'LIM'
-            """, (session_id, time_horizon))
+                  AND model_type = %s
+            """, (session_id, time_horizon, model_type))
 
             influence_probs = {}
             for row in cursor.fetchall():
@@ -215,7 +215,7 @@ class InfluenceModels:
 
             return {
                 'success': True,
-                'model_type': 'LIM',
+                'model_type': model_type,
                 'time_horizon': time_horizon,
                 'num_simulations': num_simulations,
                 'seed_roads': seed_roads,
@@ -232,7 +232,7 @@ class InfluenceModels:
             if conn:
                 conn.close()
 
-    def _predict_ltm(self, session_id, seed_roads, time_horizon):
+    def _predict_ltm(self, session_id, seed_roads, time_horizon, model_type):
         """
         Linear Threshold Model (LTM)
         Threshold-based activation
@@ -259,7 +259,8 @@ class InfluenceModels:
                 FROM influence_probabilities
                 WHERE session_id = %s
                   AND time_horizon_minutes = %s
-            """, (session_id, time_horizon))
+                  AND model_type = %s
+            """, (session_id, time_horizon, model_type))
 
             influence_probs = {}
             for row in cursor.fetchall():
@@ -297,7 +298,7 @@ class InfluenceModels:
 
             return {
                 'success': True,
-                'model_type': 'LTM',
+                'model_type': model_type,
                 'time_horizon': time_horizon,
                 'seed_roads': seed_roads,
                 'predictions': results
@@ -313,22 +314,22 @@ class InfluenceModels:
             if conn:
                 conn.close()
 
-    def _predict_sir(self, session_id, seed_roads, time_horizon):
+    def _predict_sir(self, session_id, seed_roads, time_horizon, model_type):
         """
         SIR Model (Susceptible-Infected-Recovered)
         Epidemic model with recovery
         """
         # Similar to LIM but with recovery mechanism
         # For simplicity, using LIM with reduced spread
-        return self._predict_lim(session_id, seed_roads, time_horizon, num_simulations=50)
+        return self._predict_lim(session_id, seed_roads, time_horizon, model_type, num_simulations=50)
 
-    def _predict_sis(self, session_id, seed_roads, time_horizon):
+    def _predict_sis(self, session_id, seed_roads, time_horizon, model_type):
         """
         SIS Model (Susceptible-Infected-Susceptible)
         Epidemic model without immunity
         """
         # Similar to LIM but roads can be re-jammed
-        return self._predict_lim(session_id, seed_roads, time_horizon, num_simulations=50)
+        return self._predict_lim(session_id, seed_roads, time_horizon, model_type, num_simulations=50)
 
     def _get_risk_level(self, probability):
         """
